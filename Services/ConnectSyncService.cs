@@ -1,9 +1,8 @@
-using System.Globalization;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Rutr.Api.Data;
 using Rutr.Api.Models.Dtos;
 using Rutr.Api.Models.Entities;
+using Rutr.Api.Services.Ai;
 using Rutr.Api.Services.CompanyCam;
 using Rutr.Api.Services.JobNimbus;
 
@@ -16,6 +15,7 @@ public class ConnectSyncService(
     RutrDbContext db,
     MockJobNimbusClient jobNimbus,
     MockCompanyCamClient companyCam,
+    MockDraftGenerator draftGenerator,
     AuditService audit,
     ILogger<ConnectSyncService> logger)
 {
@@ -95,6 +95,16 @@ public class ConnectSyncService(
                     UpdatedAt = now
                 };
                 db.Jobs.Add(job);
+                db.HomeownerConsents.Add(new HomeownerConsent
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = organizationId,
+                    JobId = job.Id,
+                    SmsOptIn = true,
+                    EmailOptIn = true,
+                    SmsStopped = false,
+                    UpdatedAt = now
+                });
                 byExternal[payload.ExternalId] = job;
             }
 
@@ -159,14 +169,14 @@ public class ConnectSyncService(
         {
             var job = jobs.First(j => j.Id == jobId);
             var evidence = string.Join(", ", photos.Select(p => $"CompanyCam {p.ExternalCompanyCamId} ({p.Caption})"));
-            var body = BuildDraftBody(job, photos);
+            var (subject, body) = draftGenerator.Generate(job, photos);
             var draft = new MessageDraft
             {
                 Id = Guid.NewGuid(),
                 OrganizationId = organizationId,
                 JobId = jobId,
                 Channel = job.HomeownerPhone.Length > 0 ? "Sms" : "Email",
-                Subject = photos.Count == 1 ? "New field update" : $"{photos.Count} new field updates",
+                Subject = subject,
                 Body = body,
                 Status = "PendingApproval",
                 EvidenceSummary = evidence,
@@ -228,35 +238,6 @@ public class ConnectSyncService(
         }
 
         return ensured;
-    }
-
-    private static string BuildDraftBody(Job job, IReadOnlyList<PhotoEvidence> photos)
-    {
-        var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture, $"Hi {FirstName(job.HomeownerName)} — ");
-        if (photos.Count == 1)
-        {
-            sb.Append(photos[0].Caption.TrimEnd('.'));
-            sb.Append('.');
-        }
-        else
-        {
-            sb.Append("we captured new progress photos on site: ");
-            sb.Append(string.Join("; ", photos.Select(p => p.Caption)));
-            sb.Append('.');
-        }
-
-        sb.Append(" Open your portal for verified updates after your PM approves.");
-        return sb.ToString();
-    }
-
-    private static string FirstName(string homeownerName)
-    {
-        var part = homeownerName.Split('&', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault()
-            ?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
-        return string.IsNullOrWhiteSpace(part) ? "there" : part;
     }
 
     private static string BuildPortalSlug(Job job)

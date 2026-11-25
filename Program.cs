@@ -1,4 +1,6 @@
 using System.Text;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -7,7 +9,9 @@ using Rutr.Api.Authentication;
 using Rutr.Api.Components;
 using Rutr.Api.Configuration;
 using Rutr.Api.Data;
+using Rutr.Api.Models.Validators;
 using Rutr.Api.Services;
+using Rutr.Api.Services.Ai;
 using Rutr.Api.Services.CompanyCam;
 using Rutr.Api.Services.JobNimbus;
 using Rutr.Api.Services.Messaging;
@@ -23,6 +27,7 @@ builder.Host.UseSerilog(
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<IntegrationOptions>(builder.Configuration.GetSection(IntegrationOptions.SectionName));
+builder.Services.Configure<MessagingOptions>(builder.Configuration.GetSection(MessagingOptions.SectionName));
 
 // Resolve connection string at scope creation so test hosts can override via configuration.
 builder.Services.AddDbContext<RutrDbContext>((sp, opt) =>
@@ -69,6 +74,8 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -113,6 +120,7 @@ builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<PhotoService>();
 builder.Services.AddScoped<ConnectSyncService>();
 builder.Services.AddScoped<MockDigestSender>();
+builder.Services.AddSingleton<MockDraftGenerator>();
 builder.Services.AddSingleton<MockJobNimbusClient>();
 builder.Services.AddSingleton<MockCompanyCamClient>();
 
@@ -130,6 +138,7 @@ if (!app.Environment.IsProduction())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseCors();

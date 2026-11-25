@@ -115,14 +115,27 @@ public class ApprovalService(RutrDbContext db, AuditService audit, MockDigestSen
             return null;
         }
 
-        await sender.SendAsync(draft, draft.Job, ct);
+        var sendResult = await sender.SendAsync(draft, draft.Job, ct);
+        if (!sendResult.Sent)
+        {
+            await audit.WriteAsync(
+                organizationId,
+                "draft.send_blocked",
+                sendResult.Detail,
+                draft.JobId,
+                draft.Id,
+                staffUserId,
+                ct);
+            throw new InvalidOperationException(sendResult.Detail);
+        }
+
         draft.Status = "Sent";
         draft.Job.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         await audit.WriteAsync(
             organizationId,
             "draft.sent",
-            $"Sent {draft.Channel} digest '{draft.Subject}' (mock).",
+            sendResult.Detail,
             draft.JobId,
             draft.Id,
             staffUserId,

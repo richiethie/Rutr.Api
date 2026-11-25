@@ -43,11 +43,18 @@ public class ApprovalsController(ApprovalService approvals) : ControllerBase
     [HttpPost("{draftId:guid}/send")]
     public async Task<ActionResult<MessageDraftDto>> Send(Guid draftId, CancellationToken ct)
     {
-        var staffId = GetStaffId() ?? SeedData.PmUserId;
-        var result = await approvals.SendAsync(GetOrgId(), draftId, staffId, ct);
-        return result is null
-            ? NotFound(new { error = "Draft not found or not in Approved status." })
-            : Ok(result);
+        try
+        {
+            var staffId = GetStaffId() ?? SeedData.PmUserId;
+            var result = await approvals.SendAsync(GetOrgId(), draftId, staffId, ct);
+            return result is null
+                ? NotFound(new { error = "Draft not found or not in Approved status." })
+                : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     private Guid GetOrgId()

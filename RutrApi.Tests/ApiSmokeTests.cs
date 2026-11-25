@@ -50,6 +50,22 @@ public class ApiSmokeTests : IClassFixture<RutrApiFactory>
         portal.StatusCode.Should().Be(HttpStatusCode.OK);
         var portalBody = await portal.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         portalBody.GetProperty("homeownerName").GetString().Should().Contain("Keller");
+
+        var me = await _client.GetAsync("/api/v1/auth/me");
+        me.StatusCode.Should().Be(HttpStatusCode.OK);
+        var meBody = await me.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        meBody.GetProperty("email").GetString().Should().Be("pm@rutters.demo");
+    }
+
+    [Fact]
+    public async Task Login_validation_rejects_bad_email()
+    {
+        var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            email = "not-an-email",
+            password = "short"
+        });
+        login.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     private sealed record LoginPayload(string Token, string DisplayName, string Role, Guid OrganizationId);

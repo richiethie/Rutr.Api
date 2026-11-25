@@ -55,6 +55,40 @@ namespace Rutr.Api.Migrations
                     b.ToTable("AuditEvents");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.HomeownerConsent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("EmailOptIn")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SmsOptIn")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SmsStopped")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.HasIndex("OrganizationId", "JobId")
+                        .IsUnique();
+
+                    b.ToTable("HomeownerConsents");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.Job", b =>
                 {
                     b.Property<Guid>("Id")
@@ -290,6 +324,17 @@ namespace Rutr.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("StaffUsers");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.HomeownerConsent", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Job", "Job")
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Job");
                 });
 
             modelBuilder.Entity("Rutr.Api.Models.Entities.Job", b =>

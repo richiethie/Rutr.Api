@@ -217,12 +217,24 @@ public static class SeedData
             }
         };
 
+        var consents = jobs.Select(j => new HomeownerConsent
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = OrgId,
+            JobId = j.Id,
+            SmsOptIn = true,
+            EmailOptIn = true,
+            SmsStopped = false,
+            UpdatedAt = now
+        }).ToArray();
+
         db.Organizations.Add(org);
         db.StaffUsers.Add(pm);
         db.Jobs.AddRange(jobs);
         db.Photos.AddRange(photos);
         db.MessageDrafts.AddRange(drafts);
         db.PortalTokens.AddRange(portals);
+        db.HomeownerConsents.AddRange(consents);
         await db.SaveChangesAsync(ct);
     }
 

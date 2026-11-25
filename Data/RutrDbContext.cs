@@ -12,6 +12,7 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
     public DbSet<MessageDraft> MessageDrafts => Set<MessageDraft>();
     public DbSet<PortalToken> PortalTokens => Set<PortalToken>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<HomeownerConsent> HomeownerConsents => Set<HomeownerConsent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +63,13 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
             e.HasIndex(x => new { x.OrganizationId, x.JobId, x.CreatedAt });
             e.Property(x => x.Action).HasMaxLength(64);
             e.Property(x => x.Detail).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<HomeownerConsent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.OrganizationId, x.JobId }).IsUnique();
+            e.HasOne(x => x.Job).WithMany().HasForeignKey(x => x.JobId);
         });
     }
 }

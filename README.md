@@ -51,6 +51,7 @@ Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored).
 | Method | Path | Auth |
 |--------|------|------|
 | POST | `/api/v1/auth/login` | none |
+| GET | `/api/v1/auth/me` | JWT / demo |
 | GET | `/api/v1/jobs` | JWT / demo |
 | GET | `/api/v1/jobs/{id}` | JWT / demo |
 | GET | `/api/v1/jobs/{id}/audit` | JWT / demo |
@@ -61,6 +62,8 @@ Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored).
 | POST | `/api/v1/approvals/{draftId}/send` | JWT / demo |
 | GET | `/api/v1/integrations/status` | JWT / demo |
 | POST | `/api/v1/integrations/sync` | JWT / demo |
+| POST | `/api/v1/webhooks/companycam` | none (stub) |
+| POST | `/api/v1/webhooks/jobnimbus` | none (stub) |
 | GET | `/api/v1/portal/{token}` | none |
 
 Seed portal tokens: `keller-maple-demo`, `ellis-prairie-demo`, `nguyen-oak-demo`. Sync may add others (e.g. new Birch job).

@@ -21,4 +21,25 @@ public class AuthService(RutrDbContext db, JwtTokenService tokens)
 
         return new LoginResponse(tokens.CreateToken(user), user.DisplayName, user.Role, user.OrganizationId);
     }
+
+    public async Task<StaffMeDto?> GetMeAsync(Guid staffUserId, CancellationToken ct = default)
+    {
+        var user = await db.StaffUsers
+            .AsNoTracking()
+            .Include(u => u.Organization)
+            .FirstOrDefaultAsync(u => u.Id == staffUserId, ct);
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        return new StaffMeDto(
+            user.Id,
+            user.Email,
+            user.DisplayName,
+            user.Role,
+            user.OrganizationId,
+            user.Organization.Name);
+    }
 }
