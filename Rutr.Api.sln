@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rutr.Api", "Rutr.Api.csproj", "{44ED63D9-FA42-4A52-B9FA-24D8E5692D18}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RutrApi.Tests", "RutrApi.Tests\RutrApi.Tests.csproj", "{15BF6AB0-DA22-429E-85F8-168EB3AAD87D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{44ED63D9-FA42-4A52-B9FA-24D8E5692D18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44ED63D9-FA42-4A52-B9FA-24D8E5692D18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44ED63D9-FA42-4A52-B9FA-24D8E5692D18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44ED63D9-FA42-4A52-B9FA-24D8E5692D18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15BF6AB0-DA22-429E-85F8-168EB3AAD87D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15BF6AB0-DA22-429E-85F8-168EB3AAD87D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15BF6AB0-DA22-429E-85F8-168EB3AAD87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15BF6AB0-DA22-429E-85F8-168EB3AAD87D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
