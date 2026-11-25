@@ -47,7 +47,7 @@ public class WebhooksController(
         var normalized = From.Trim();
         var consents = await db.HomeownerConsents
             .Include(c => c.Job)
-            .Where(c => c.OrganizationId == SeedData.OrgId && c.Job.HomeownerPhone == normalized)
+            .Where(c => c.OrganizationId == SeedData.OrgId && c.Job != null && c.Job.HomeownerPhone == normalized)
             .ToListAsync(ct);
 
         foreach (var consent in consents)

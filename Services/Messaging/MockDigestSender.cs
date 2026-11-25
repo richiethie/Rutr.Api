@@ -23,8 +23,11 @@ public class MockDigestSender(
     public async Task<DigestSendResult> SendAsync(MessageDraft draft, Job job, CancellationToken ct = default)
     {
         var channel = draft.Channel.Equals("Email", StringComparison.OrdinalIgnoreCase) ? "email" : "sms";
-        var consent = await db.HomeownerConsents
-            .FirstOrDefaultAsync(c => c.OrganizationId == job.OrganizationId && c.JobId == job.Id, ct);
+        var consentRows = await db.HomeownerConsents
+            .Where(c => c.OrganizationId == job.OrganizationId &&
+                        (c.JobId == job.Id || (job.PrimaryContactId != null && c.ContactId == job.PrimaryContactId)))
+            .ToListAsync(ct);
+        var consent = consentRows.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
 
         if (channel == "sms")
         {

@@ -82,6 +82,8 @@ public class ConnectSyncService(
                     Id = Guid.NewGuid(),
                     OrganizationId = organizationId,
                     ExternalJobNimbusId = payload.ExternalId,
+                    Title = $"{payload.HomeownerName} — {payload.AddressLine1}",
+                    JobType = "Retail",
                     AddressLine1 = payload.AddressLine1,
                     City = payload.City,
                     State = payload.State,

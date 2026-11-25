@@ -1,7 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Rutr.Api.Data;
+using Rutr.Api.Components;
 using Rutr.Api.Models.Dtos;
 using Rutr.Api.Services;
 
@@ -10,28 +9,35 @@ namespace Rutr.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/integrations")]
-public class IntegrationsController(ConnectSyncService sync) : ControllerBase
+public class IntegrationsController(
+    ConnectSyncService sync,
+    IntegrationConnectionService connections) : ControllerBase
 {
     [HttpGet("status")]
     public ActionResult<IntegrationStatusDto> Status() => Ok(sync.Status());
 
-    [HttpPost("sync")]
-    public async Task<ActionResult<SyncResultDto>> Sync(CancellationToken ct)
+    [HttpGet("connections")]
+    public async Task<ActionResult<IReadOnlyList<IntegrationConnectionDto>>> Connections(CancellationToken ct) =>
+        Ok(await connections.ListAsync(User.GetOrganizationId(), ct));
+
+    [HttpPost("connections/{provider}/connect")]
+    public async Task<ActionResult<IntegrationConnectionDto>> Connect(string provider, CancellationToken ct)
     {
-        var result = await sync.SyncAsync(GetOrgId(), GetStaffId(), ct);
+        var result = await connections.ConnectAsync(User.GetOrganizationId(), provider, ct);
         return Ok(result);
     }
 
-    private Guid GetOrgId()
+    [HttpPost("connections/{provider}/disconnect")]
+    public async Task<ActionResult<IntegrationConnectionDto>> Disconnect(string provider, CancellationToken ct)
     {
-        var claim = User.FindFirst("org")?.Value;
-        return Guid.TryParse(claim, out var orgId) ? orgId : SeedData.OrgId;
+        var result = await connections.DisconnectAsync(User.GetOrganizationId(), provider, ct);
+        return Ok(result);
     }
 
-    private Guid? GetStaffId()
+    [HttpPost("sync")]
+    public async Task<ActionResult<SyncResultDto>> Sync(CancellationToken ct)
     {
-        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                  ?? User.FindFirst("sub")?.Value;
-        return Guid.TryParse(sub, out var id) ? id : null;
+        var result = await sync.SyncAsync(User.GetOrganizationId(), User.GetStaffUserId(), ct);
+        return Ok(result);
     }
 }

@@ -55,16 +55,72 @@ namespace Rutr.Api.Migrations
                     b.ToTable("AuditEvents");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Contact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PreferredChannel")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Email");
+
+                    b.ToTable("Contacts");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.HomeownerConsent", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ContactId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisclosureText")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("EmailOptIn")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid>("JobId")
+                    b.Property<Guid?>("JobId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("OrganizationId")
@@ -76,17 +132,58 @@ namespace Rutr.Api.Migrations
                     b.Property<bool>("SmsStopped")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ContactId");
+
                     b.HasIndex("JobId");
 
-                    b.HasIndex("OrganizationId", "JobId")
-                        .IsUnique();
+                    b.HasIndex("OrganizationId", "ContactId");
+
+                    b.HasIndex("OrganizationId", "JobId");
 
                     b.ToTable("HomeownerConsents");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.IntegrationConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ConnectedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsConnected")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("IntegrationConnections");
                 });
 
             modelBuilder.Entity("Rutr.Api.Models.Entities.Job", b =>
@@ -122,11 +219,21 @@ namespace Rutr.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("JobType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PostalCode")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PrimaryContactId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PropertyId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Stage")
@@ -141,14 +248,70 @@ namespace Rutr.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PrimaryContactId");
+
+                    b.HasIndex("PropertyId");
+
                     b.HasIndex("OrganizationId", "ExternalJobNimbusId");
 
                     b.ToTable("Jobs");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.JobTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("AssignedStaffId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ContactId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId");
+
+                    b.HasIndex("JobId");
+
+                    b.ToTable("Tasks", (string)null);
                 });
 
             modelBuilder.Entity("Rutr.Api.Models.Entities.MessageDraft", b =>
@@ -199,10 +362,93 @@ namespace Rutr.Api.Migrations
                     b.ToTable("MessageDrafts");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Milestone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId", "SortOrder");
+
+                    b.ToTable("Milestones");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Note", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ContactId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreatedByStaffId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId");
+
+                    b.HasIndex("JobId");
+
+                    b.ToTable("Notes");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.Organization", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BrandPrimaryColor")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -212,7 +458,17 @@ namespace Rutr.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("QuietHoursEndLocal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("QuietHoursStartLocal")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -254,6 +510,9 @@ namespace Rutr.Api.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("SoftDeletedAt")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("JobId");
@@ -293,6 +552,54 @@ namespace Rutr.Api.Migrations
                     b.ToTable("PortalTokens");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Property", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AddressLine1")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PropertyType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("YearBuilt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "PostalCode");
+
+                    b.ToTable("Properties");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.StaffUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -326,13 +633,30 @@ namespace Rutr.Api.Migrations
                     b.ToTable("StaffUsers");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Contact", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Organization", "Organization")
+                        .WithMany("Contacts")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.HomeownerConsent", b =>
                 {
+                    b.HasOne("Rutr.Api.Models.Entities.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Rutr.Api.Models.Entities.Job", "Job")
                         .WithMany()
                         .HasForeignKey("JobId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Contact");
 
                     b.Navigation("Job");
                 });
@@ -345,7 +669,38 @@ namespace Rutr.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Rutr.Api.Models.Entities.Contact", "PrimaryContact")
+                        .WithMany()
+                        .HasForeignKey("PrimaryContactId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Rutr.Api.Models.Entities.Property", "Property")
+                        .WithMany("Jobs")
+                        .HasForeignKey("PropertyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Organization");
+
+                    b.Navigation("PrimaryContact");
+
+                    b.Navigation("Property");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.JobTask", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Rutr.Api.Models.Entities.Job", "Job")
+                        .WithMany("Tasks")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Contact");
+
+                    b.Navigation("Job");
                 });
 
             modelBuilder.Entity("Rutr.Api.Models.Entities.MessageDraft", b =>
@@ -355,6 +710,34 @@ namespace Rutr.Api.Migrations
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Job");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Milestone", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Job", "Job")
+                        .WithMany("Milestones")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Job");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Note", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Contact", "Contact")
+                        .WithMany()
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Rutr.Api.Models.Entities.Job", "Job")
+                        .WithMany("Notes")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Contact");
 
                     b.Navigation("Job");
                 });
@@ -381,6 +764,17 @@ namespace Rutr.Api.Migrations
                     b.Navigation("Job");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Property", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Organization", "Organization")
+                        .WithMany("Properties")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.StaffUser", b =>
                 {
                     b.HasOne("Rutr.Api.Models.Entities.Organization", "Organization")
@@ -396,16 +790,31 @@ namespace Rutr.Api.Migrations
                 {
                     b.Navigation("MessageDrafts");
 
+                    b.Navigation("Milestones");
+
+                    b.Navigation("Notes");
+
                     b.Navigation("Photos");
 
                     b.Navigation("PortalTokens");
+
+                    b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("Rutr.Api.Models.Entities.Organization", b =>
                 {
+                    b.Navigation("Contacts");
+
                     b.Navigation("Jobs");
 
+                    b.Navigation("Properties");
+
                     b.Navigation("StaffUsers");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.Property", b =>
+                {
+                    b.Navigation("Jobs");
                 });
 #pragma warning restore 612, 618
         }

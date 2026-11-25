@@ -145,5 +145,6 @@ public class ApprovalService(RutrDbContext db, AuditService audit, MockDigestSen
     }
 
     private static MessageDraftDto ToDto(Models.Entities.MessageDraft draft) =>
-        new(draft.Id, draft.Channel, draft.Subject, draft.Body, draft.Status, draft.EvidenceSummary, draft.CreatedAt, draft.ApprovedAt);
+        new(draft.Id, draft.JobId, draft.Channel, draft.Subject, draft.Body, draft.Status, draft.EvidenceSummary,
+            draft.CreatedAt, draft.ApprovedAt, draft.ApprovedByStaffId);
 }

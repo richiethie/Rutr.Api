@@ -15,6 +15,8 @@ public class PortalService(RutrDbContext db)
             .Include(t => t.Job)
                 .ThenInclude(j => j.MessageDrafts)
             .Include(t => t.Job)
+                .ThenInclude(j => j.Milestones)
+            .Include(t => t.Job)
                 .ThenInclude(j => j.Organization)
             .FirstOrDefaultAsync(t => t.Token == token, ct);
 
@@ -25,7 +27,7 @@ public class PortalService(RutrDbContext db)
 
         var job = portal.Job;
         var latest = job.MessageDrafts
-            .Where(d => d.Status == "Approved")
+            .Where(d => d.Status is "Approved" or "Sent")
             .OrderByDescending(d => d.ApprovedAt?.UtcDateTime ?? DateTime.MinValue)
             .Select(d => d.Body)
             .FirstOrDefault()
@@ -44,6 +46,10 @@ public class PortalService(RutrDbContext db)
                 .Where(p => p.CustomerVisible)
                 .OrderByDescending(p => p.CapturedAt.UtcDateTime)
                 .Select(p => new PhotoDto(p.Id, p.Caption, p.ImageUrl, p.CustomerVisible, p.CapturedAt))
+                .ToList(),
+            job.Milestones
+                .OrderBy(m => m.SortOrder)
+                .Select(m => new PortalMilestoneDto(m.Name, m.Status, m.CompletedAt))
                 .ToList());
     }
 }

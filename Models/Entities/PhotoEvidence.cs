@@ -11,4 +11,5 @@ public class PhotoEvidence
     public string ImageUrl { get; set; } = string.Empty;
     public bool CustomerVisible { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
+    public DateTimeOffset? SoftDeletedAt { get; set; }
 }

@@ -2,12 +2,16 @@ namespace Rutr.Api.Models.Dtos;
 
 public record JobListItemDto(
     Guid Id,
+    string Title,
+    string JobType,
     string AddressLine1,
     string City,
     string State,
     string HomeownerName,
     string Status,
     string Stage,
+    Guid? PropertyId,
+    Guid? PrimaryContactId,
     int PendingApprovals,
     int PhotoCount,
     DateTimeOffset UpdatedAt);
@@ -21,16 +25,20 @@ public record PhotoDto(
 
 public record MessageDraftDto(
     Guid Id,
+    Guid JobId,
     string Channel,
     string Subject,
     string Body,
     string Status,
     string EvidenceSummary,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? ApprovedAt);
+    DateTimeOffset? ApprovedAt,
+    Guid? ApprovedByStaffId);
 
 public record JobDetailDto(
     Guid Id,
+    string Title,
+    string JobType,
     string AddressLine1,
     string City,
     string State,
@@ -41,6 +49,8 @@ public record JobDetailDto(
     string Status,
     string Stage,
     string ExternalJobNimbusId,
+    Guid? PropertyId,
+    Guid? PrimaryContactId,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<PhotoDto> Photos,
     IReadOnlyList<MessageDraftDto> Drafts,
@@ -57,6 +67,8 @@ public record ApprovalQueueItemDto(
     string EvidenceSummary,
     DateTimeOffset CreatedAt);
 
+public record PortalMilestoneDto(string Name, string Status, DateTimeOffset? CompletedAt);
+
 public record PortalJobDto(
     string OrganizationName,
     string AddressLine1,
@@ -66,7 +78,8 @@ public record PortalJobDto(
     string Status,
     string Stage,
     string LatestUpdate,
-    IReadOnlyList<PhotoDto> Photos);
+    IReadOnlyList<PhotoDto> Photos,
+    IReadOnlyList<PortalMilestoneDto> Milestones);
 
 public record ApproveDraftRequest(Guid? StaffUserId);
 
