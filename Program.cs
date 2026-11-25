@@ -117,7 +117,8 @@ try
         await SeedData.EnsureSeededAsync(db);
     }
 
-    if (app.Environment.IsDevelopment())
+    // OpenAPI available locally and in non-prod so Rutr.Web can gen:api against the running API.
+    if (!app.Environment.IsProduction())
     {
         app.UseSwagger();
         app.UseSwaggerUI();

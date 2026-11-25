@@ -20,13 +20,17 @@ dotnet restore
 dotnet run --urls http://localhost:5188
 ```
 
-- Swagger: http://localhost:5188/swagger
+(Or open the solution and F5 the `http` launch profile — same port.)
+
+- Swagger UI: http://localhost:5188/swagger
+- OpenAPI JSON: http://localhost:5188/swagger/v1/swagger.json (also committed under `openapi/openapi.json` for `Rutr.Web` `gen:api`)
 - Health: http://localhost:5188/health
+- CORS allows `http://localhost:3317` (Rutr.Web)
 - SQLite DB file: `rutr-local.db` (migrated + seeded on first start)
 - Integrations mock mode: `Integrations:UseMocks=true` (default)
 - Optional Postgres: `docker compose --profile postgres up -d` then set `ConnectionStrings__Default`
 
-Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored).
+Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored). JWT `SigningKey` must be **≥ 32 characters** (256-bit HS256).
 
 ### Demo staff login
 
