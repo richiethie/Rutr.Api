@@ -21,6 +21,7 @@ public class IntegrationsController(
         Ok(await connections.ListAsync(User.GetOrganizationId(), ct));
 
     [HttpPost("connections/{provider}/connect")]
+    [HttpPost("{provider}/connect")] // Web client alias
     public async Task<ActionResult<IntegrationConnectionDto>> Connect(string provider, CancellationToken ct)
     {
         var result = await connections.ConnectAsync(User.GetOrganizationId(), provider, ct);
@@ -28,6 +29,7 @@ public class IntegrationsController(
     }
 
     [HttpPost("connections/{provider}/disconnect")]
+    [HttpPost("{provider}/disconnect")] // Web client alias
     public async Task<ActionResult<IntegrationConnectionDto>> Disconnect(string provider, CancellationToken ct)
     {
         var result = await connections.DisconnectAsync(User.GetOrganizationId(), provider, ct);
