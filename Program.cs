@@ -10,137 +10,134 @@ using Rutr.Api.Data;
 using Rutr.Api.Services;
 using Rutr.Api.Services.CompanyCam;
 using Rutr.Api.Services.JobNimbus;
+using Rutr.Api.Services.Messaging;
 using Serilog;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
+var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("secrets.json", optional: true, reloadOnChange: true);
 
-try
+// preserveStaticLogger: true keeps WebApplicationFactory hosts from freezing the static logger.
+builder.Host.UseSerilog(
+    (ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console(),
+    preserveStaticLogger: true);
+
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<IntegrationOptions>(builder.Configuration.GetSection(IntegrationOptions.SectionName));
+
+// Resolve connection string at scope creation so test hosts can override via configuration.
+builder.Services.AddDbContext<RutrDbContext>((sp, opt) =>
 {
-    var builder = WebApplication.CreateBuilder(args);
-    builder.Configuration.AddJsonFile("secrets.json", optional: true, reloadOnChange: true);
-    builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console());
+    var config = sp.GetRequiredService<IConfiguration>();
+    var connectionString = config.GetConnectionString("Default") ?? "Data Source=rutr-local.db";
+    opt.UseSqlite(connectionString);
+});
 
-    builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
-    builder.Services.Configure<IntegrationOptions>(builder.Configuration.GetSection(IntegrationOptions.SectionName));
-
-    var connectionString = builder.Configuration.GetConnectionString("Default")
-                           ?? "Data Source=rutr-local.db";
-
-    builder.Services.AddDbContext<RutrDbContext>(opt => opt.UseSqlite(connectionString));
-
-    var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-    builder.Services
-        .AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = "Smart";
-            options.DefaultChallengeScheme = "Smart";
-        })
-        .AddPolicyScheme("Smart", "JWT or Demo", options =>
-        {
-            options.ForwardDefaultSelector = context =>
-            {
-                if (context.Request.Headers.ContainsKey("X-Demo-Auth"))
-                {
-                    return DemoAuthHandler.SchemeName;
-                }
-
-                return JwtBearerDefaults.AuthenticationScheme;
-            };
-        })
-        .AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwt.Issuer,
-                ValidAudience = jwt.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey))
-            };
-        })
-        .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DemoAuthHandler>(
-            DemoAuthHandler.SchemeName, _ => { });
-
-    builder.Services.AddAuthorization();
-    builder.Services.AddControllers();
-    builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen(c =>
+var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+builder.Services
+    .AddAuthentication(options =>
     {
-        c.SwaggerDoc("v1", new OpenApiInfo { Title = "RUTR API", Version = "v1" });
-        c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        options.DefaultAuthenticateScheme = "Smart";
+        options.DefaultChallengeScheme = "Smart";
+    })
+    .AddPolicyScheme("Smart", "JWT or Demo", options =>
+    {
+        options.ForwardDefaultSelector = context =>
         {
-            Description = "JWT Authorization header using the Bearer scheme.",
-            Name = "Authorization",
-            In = ParameterLocation.Header,
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer"
-        });
-        c.AddSecurityRequirement(new OpenApiSecurityRequirement
-        {
+            if (context.Request.Headers.ContainsKey("X-Demo-Auth"))
             {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-                },
-                Array.Empty<string>()
+                return DemoAuthHandler.SchemeName;
             }
-        });
-    });
 
-    builder.Services.AddCors(options =>
+            return JwtBearerDefaults.AuthenticationScheme;
+        };
+    })
+    .AddJwtBearer(options =>
     {
-        options.AddDefaultPolicy(policy =>
-            policy.WithOrigins(
-                    "http://localhost:3317",
-                    "http://127.0.0.1:3317")
-                .AllowAnyHeader()
-                .AllowAnyMethod());
-    });
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey))
+        };
+    })
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DemoAuthHandler>(
+        DemoAuthHandler.SchemeName, _ => { });
 
-    builder.Services.AddScoped<JwtTokenService>();
-    builder.Services.AddScoped<AuthService>();
-    builder.Services.AddScoped<JobService>();
-    builder.Services.AddScoped<ApprovalService>();
-    builder.Services.AddScoped<PortalService>();
-    builder.Services.AddSingleton<MockJobNimbusClient>();
-    builder.Services.AddSingleton<MockCompanyCamClient>();
-
-    var app = builder.Build();
-
-    using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<RutrDbContext>();
-        await SeedData.EnsureSeededAsync(db);
-    }
-
-    // OpenAPI available locally and in non-prod so Rutr.Web can gen:api against the running API.
-    if (!app.Environment.IsProduction())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
-
-    app.UseSerilogRequestLogging();
-    app.UseCors();
-    app.UseAuthentication();
-    app.UseAuthorization();
-    app.MapControllers();
-    app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "Rutr.Api" }));
-
-    await app.RunAsync();
-}
-catch (Exception ex)
+builder.Services.AddAuthorization();
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
 {
-    Log.Fatal(ex, "Rutr.Api failed to start");
-    throw;
-}
-finally
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "RUTR API", Version = "v1" });
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+builder.Services.AddCors(options =>
 {
-    await Log.CloseAndFlushAsync();
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins(
+                "http://localhost:3317",
+                "http://127.0.0.1:3317")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<JobService>();
+builder.Services.AddScoped<ApprovalService>();
+builder.Services.AddScoped<PortalService>();
+builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<PhotoService>();
+builder.Services.AddScoped<ConnectSyncService>();
+builder.Services.AddScoped<MockDigestSender>();
+builder.Services.AddSingleton<MockJobNimbusClient>();
+builder.Services.AddSingleton<MockCompanyCamClient>();
+
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<RutrDbContext>();
+    await SeedData.EnsureSeededAsync(db);
 }
+
+if (!app.Environment.IsProduction())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "Rutr.Api" }));
+
+await app.RunAsync();
 
 public partial class Program;

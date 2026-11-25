@@ -19,11 +19,35 @@ public class ApprovalsController(ApprovalService approvals) : ControllerBase
     }
 
     [HttpPost("{draftId:guid}/approve")]
-    public async Task<ActionResult<MessageDraftDto>> Approve(Guid draftId, [FromBody] ApproveDraftRequest? request, CancellationToken ct)
+    public async Task<ActionResult<MessageDraftDto>> Approve(
+        Guid draftId,
+        [FromBody] ApproveDraftRequest? request,
+        CancellationToken ct)
     {
         var staffId = GetStaffId() ?? request?.StaffUserId ?? SeedData.PmUserId;
         var result = await approvals.ApproveAsync(GetOrgId(), draftId, staffId, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("{draftId:guid}/reject")]
+    public async Task<ActionResult<MessageDraftDto>> Reject(
+        Guid draftId,
+        [FromBody] RejectDraftRequest? request,
+        CancellationToken ct)
+    {
+        var staffId = GetStaffId() ?? SeedData.PmUserId;
+        var result = await approvals.RejectAsync(GetOrgId(), draftId, staffId, request?.Reason, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("{draftId:guid}/send")]
+    public async Task<ActionResult<MessageDraftDto>> Send(Guid draftId, CancellationToken ct)
+    {
+        var staffId = GetStaffId() ?? SeedData.PmUserId;
+        var result = await approvals.SendAsync(GetOrgId(), draftId, staffId, ct);
+        return result is null
+            ? NotFound(new { error = "Draft not found or not in Approved status." })
+            : Ok(result);
     }
 
     private Guid GetOrgId()

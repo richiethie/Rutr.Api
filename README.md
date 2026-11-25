@@ -11,7 +11,7 @@ ASP.NET Core 8 Web API for Project RUTR (Connect / Reporting pilot). Mosaic-styl
 C:\Users\rthiesfeldt\practice\Rutr.Api
 ```
 
-Cloud clone: `/agent/repos/Rutr.Api`. Sibling frontend: `Rutr.Web`.
+Sibling frontend: `Rutr.Web` on port **3317**.
 
 ## Run (local)
 
@@ -20,23 +20,31 @@ dotnet restore
 dotnet run --urls http://localhost:5188
 ```
 
-(Or open the solution and F5 the `http` launch profile — same port.)
+(Or F5 the `http` launch profile — same port.)
 
 - Swagger UI: http://localhost:5188/swagger
-- OpenAPI JSON: http://localhost:5188/swagger/v1/swagger.json (also committed under `openapi/openapi.json` for `Rutr.Web` `gen:api`)
+- OpenAPI JSON: http://localhost:5188/swagger/v1/swagger.json (committed `openapi/openapi.json` for `Rutr.Web` `gen:api`)
 - Health: http://localhost:5188/health
-- CORS allows `http://localhost:3317` (Rutr.Web)
-- SQLite DB file: `rutr-local.db` (migrated + seeded on first start)
+- CORS allows `http://localhost:3317`
+- SQLite: `rutr-local.db` (migrate + seed on start)
 - Integrations mock mode: `Integrations:UseMocks=true` (default)
 - Optional Postgres: `docker compose --profile postgres up -d` then set `ConnectionStrings__Default`
 
-Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored). JWT `SigningKey` must be **≥ 32 characters** (256-bit HS256).
+Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored). JWT `SigningKey` must be **≥ 32 characters**.
 
 ### Demo staff login
 
 - Email: `pm@rutters.demo`
 - Password: `rutters-demo`
-- Or send header `X-Demo-Auth: pm` instead of a JWT
+- Or header `X-Demo-Auth: pm` instead of a JWT
+
+### Connect flow (MVP)
+
+1. `POST /api/v1/integrations/sync` — mock JobNimbus upserts jobs, CompanyCam adds evidence, pending digests are drafted, portal tokens ensured  
+2. `GET /api/v1/approvals` — PM queue  
+3. `POST /api/v1/approvals/{id}/approve` — marks related photos customer-visible  
+4. `POST /api/v1/approvals/{id}/send` — mock SMS/email digest (audit: draft → approve → send)  
+5. Homeowner: `GET /api/v1/portal/{token}`
 
 ### Key endpoints
 
@@ -45,11 +53,17 @@ Copy `secrets.example.json` → `secrets.json` for local overrides (gitignored).
 | POST | `/api/v1/auth/login` | none |
 | GET | `/api/v1/jobs` | JWT / demo |
 | GET | `/api/v1/jobs/{id}` | JWT / demo |
+| GET | `/api/v1/jobs/{id}/audit` | JWT / demo |
+| PATCH | `/api/v1/jobs/{id}/photos/{photoId}/visibility` | JWT / demo |
 | GET | `/api/v1/approvals` | JWT / demo |
 | POST | `/api/v1/approvals/{draftId}/approve` | JWT / demo |
+| POST | `/api/v1/approvals/{draftId}/reject` | JWT / demo |
+| POST | `/api/v1/approvals/{draftId}/send` | JWT / demo |
+| GET | `/api/v1/integrations/status` | JWT / demo |
+| POST | `/api/v1/integrations/sync` | JWT / demo |
 | GET | `/api/v1/portal/{token}` | none |
 
-Demo portal tokens: `keller-maple-demo`, `ellis-prairie-demo`, `nguyen-oak-demo`.
+Seed portal tokens: `keller-maple-demo`, `ellis-prairie-demo`, `nguyen-oak-demo`. Sync may add others (e.g. new Birch job).
 
 ## Docker
 

@@ -73,3 +73,11 @@ public record ApproveDraftRequest(Guid? StaffUserId);
 public record LoginRequest(string Email, string Password);
 
 public record LoginResponse(string Token, string DisplayName, string Role, Guid OrganizationId);
+
+public record AuditEventDto(
+    Guid Id,
+    Guid? JobId,
+    Guid? DraftId,
+    string Action,
+    string Detail,
+    DateTimeOffset CreatedAt);

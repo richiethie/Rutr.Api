@@ -3,13 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 
 namespace RutrApi.Tests;
 
-public class ApiSmokeTests : IClassFixture<ApiSmokeTests.RutrApiFactory>
+public class ApiSmokeTests : IClassFixture<RutrApiFactory>
 {
     private readonly HttpClient _client;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -53,40 +50,6 @@ public class ApiSmokeTests : IClassFixture<ApiSmokeTests.RutrApiFactory>
         portal.StatusCode.Should().Be(HttpStatusCode.OK);
         var portalBody = await portal.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         portalBody.GetProperty("homeownerName").GetString().Should().Contain("Keller");
-    }
-
-    public sealed class RutrApiFactory : WebApplicationFactory<Program>
-    {
-        private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"rutr-test-{Guid.NewGuid():N}.db");
-
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            builder.UseEnvironment("Development");
-            builder.ConfigureAppConfiguration((_, config) =>
-            {
-                config.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Default"] = $"Data Source={_dbPath}",
-                    ["Jwt:SigningKey"] = "local-dev-only-signing-key-change-me-before-prod!!"
-                });
-            });
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-            try
-            {
-                if (File.Exists(_dbPath))
-                {
-                    File.Delete(_dbPath);
-                }
-            }
-            catch
-            {
-                // best-effort cleanup
-            }
-        }
     }
 
     private sealed record LoginPayload(string Token, string DisplayName, string Role, Guid OrganizationId);

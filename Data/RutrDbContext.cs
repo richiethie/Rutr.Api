@@ -11,6 +11,7 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
     public DbSet<PhotoEvidence> Photos => Set<PhotoEvidence>();
     public DbSet<MessageDraft> MessageDrafts => Set<MessageDraft>();
     public DbSet<PortalToken> PortalTokens => Set<PortalToken>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +54,14 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Token).IsUnique();
             e.HasOne(x => x.Job).WithMany(j => j.PortalTokens).HasForeignKey(x => x.JobId);
+        });
+
+        modelBuilder.Entity<AuditEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.OrganizationId, x.JobId, x.CreatedAt });
+            e.Property(x => x.Action).HasMaxLength(64);
+            e.Property(x => x.Detail).HasMaxLength(2000);
         });
     }
 }

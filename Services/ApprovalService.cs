@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Rutr.Api.Data;
 using Rutr.Api.Models.Dtos;
+using Rutr.Api.Services.Messaging;
 
 namespace Rutr.Api.Services;
 
-public class ApprovalService(RutrDbContext db)
+public class ApprovalService(RutrDbContext db, AuditService audit, MockDigestSender sender)
 {
     public async Task<IReadOnlyList<ApprovalQueueItemDto>> QueueAsync(Guid organizationId, CancellationToken ct = default)
     {
@@ -46,7 +47,7 @@ public class ApprovalService(RutrDbContext db)
         draft.ApprovedByStaffId = staffUserId;
         draft.Job.UpdatedAt = DateTimeOffset.UtcNow;
 
-        // Mark related evidence customer-visible on approve (Connect MVP behavior).
+        // Connect MVP: approving a digest makes related not-yet-visible evidence customer-visible.
         var photos = await db.Photos
             .Where(p => p.JobId == draft.JobId && !p.CustomerVisible)
             .ToListAsync(ct);
@@ -56,15 +57,80 @@ public class ApprovalService(RutrDbContext db)
         }
 
         await db.SaveChangesAsync(ct);
-
-        return new MessageDraftDto(
+        await audit.WriteAsync(
+            organizationId,
+            "draft.approved",
+            $"Approved draft '{draft.Subject}' and marked {photos.Count} photo(s) customer-visible.",
+            draft.JobId,
             draft.Id,
-            draft.Channel,
-            draft.Subject,
-            draft.Body,
-            draft.Status,
-            draft.EvidenceSummary,
-            draft.CreatedAt,
-            draft.ApprovedAt);
+            staffUserId,
+            ct);
+
+        return ToDto(draft);
     }
+
+    public async Task<MessageDraftDto?> RejectAsync(
+        Guid organizationId,
+        Guid draftId,
+        Guid staffUserId,
+        string? reason,
+        CancellationToken ct = default)
+    {
+        var draft = await db.MessageDrafts
+            .Include(d => d.Job)
+            .FirstOrDefaultAsync(d => d.OrganizationId == organizationId && d.Id == draftId, ct);
+
+        if (draft is null || draft.Status != "PendingApproval")
+        {
+            return null;
+        }
+
+        draft.Status = "Rejected";
+        draft.Job.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.WriteAsync(
+            organizationId,
+            "draft.rejected",
+            string.IsNullOrWhiteSpace(reason) ? "Rejected without reason." : reason.Trim(),
+            draft.JobId,
+            draft.Id,
+            staffUserId,
+            ct);
+
+        return ToDto(draft);
+    }
+
+    public async Task<MessageDraftDto?> SendAsync(
+        Guid organizationId,
+        Guid draftId,
+        Guid staffUserId,
+        CancellationToken ct = default)
+    {
+        var draft = await db.MessageDrafts
+            .Include(d => d.Job)
+            .FirstOrDefaultAsync(d => d.OrganizationId == organizationId && d.Id == draftId, ct);
+
+        if (draft is null || draft.Status != "Approved")
+        {
+            return null;
+        }
+
+        await sender.SendAsync(draft, draft.Job, ct);
+        draft.Status = "Sent";
+        draft.Job.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.WriteAsync(
+            organizationId,
+            "draft.sent",
+            $"Sent {draft.Channel} digest '{draft.Subject}' (mock).",
+            draft.JobId,
+            draft.Id,
+            staffUserId,
+            ct);
+
+        return ToDto(draft);
+    }
+
+    private static MessageDraftDto ToDto(Models.Entities.MessageDraft draft) =>
+        new(draft.Id, draft.Channel, draft.Subject, draft.Body, draft.Status, draft.EvidenceSummary, draft.CreatedAt, draft.ApprovedAt);
 }

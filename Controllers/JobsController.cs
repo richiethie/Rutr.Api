@@ -10,7 +10,7 @@ namespace Rutr.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1/jobs")]
-public class JobsController(JobService jobs) : ControllerBase
+public class JobsController(JobService jobs, PhotoService photos, AuditService audit) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<JobListItemDto>>> List(CancellationToken ct)
@@ -25,6 +25,29 @@ public class JobsController(JobService jobs) : ControllerBase
         return job is null ? NotFound() : Ok(job);
     }
 
+    [HttpGet("{jobId:guid}/audit")]
+    public async Task<ActionResult<IReadOnlyList<AuditEventDto>>> Audit(Guid jobId, CancellationToken ct)
+    {
+        return Ok(await audit.ListForJobAsync(GetOrgId(), jobId, ct));
+    }
+
+    [HttpPatch("{jobId:guid}/photos/{photoId:guid}/visibility")]
+    public async Task<ActionResult<PhotoDto>> SetPhotoVisibility(
+        Guid jobId,
+        Guid photoId,
+        [FromBody] SetPhotoVisibilityRequest request,
+        CancellationToken ct)
+    {
+        var result = await photos.SetVisibilityAsync(
+            GetOrgId(),
+            jobId,
+            photoId,
+            request.CustomerVisible,
+            GetStaffId(),
+            ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     private Guid GetOrgId()
     {
         var claim = User.FindFirst("org")?.Value;
@@ -33,7 +56,13 @@ public class JobsController(JobService jobs) : ControllerBase
             return orgId;
         }
 
-        // Demo fallback when auth is bypassed in Development with AllowAnonymous demo header path.
         return SeedData.OrgId;
+    }
+
+    private Guid? GetStaffId()
+    {
+        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? User.FindFirst("sub")?.Value;
+        return Guid.TryParse(sub, out var id) ? id : null;
     }
 }
