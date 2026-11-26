@@ -32,6 +32,49 @@ public class EvidenceController(EvidenceService evidence) : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
+    /// <summary>Multipart upload — file + caption (+ optional visibility / CompanyCam id).</summary>
+    [HttpPost("upload")]
+    [RequestSizeLimit(12 * 1024 * 1024)]
+    public async Task<ActionResult<EvidenceDto>> Upload(
+        [FromForm] Guid jobId,
+        [FromForm] string caption,
+        [FromForm] IFormFile file,
+        [FromForm] string? externalCompanyCamId,
+        [FromForm] bool customerVisible = false,
+        CancellationToken ct = default)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { error = "Choose an image file." });
+        }
+
+        if (string.IsNullOrWhiteSpace(caption))
+        {
+            return BadRequest(new { error = "Caption is required." });
+        }
+
+        try
+        {
+            var webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var publicBase = $"{Request.Scheme}://{Request.Host}";
+            var created = await evidence.CreateFromUploadAsync(
+                User.GetOrganizationId(),
+                jobId,
+                caption,
+                file,
+                externalCompanyCamId,
+                customerVisible,
+                publicBase,
+                webRoot,
+                ct);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<EvidenceDto>> Update(Guid id, [FromBody] EvidenceWriteRequest req, CancellationToken ct)
     {

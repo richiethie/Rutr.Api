@@ -44,6 +44,69 @@ public class EvidenceService(RutrDbContext db, AuditService audit)
         return Map(entity);
     }
 
+    /// <summary>Save an uploaded image under wwwroot/uploads and create evidence.</summary>
+    public async Task<EvidenceDto> CreateFromUploadAsync(
+        Guid orgId,
+        Guid jobId,
+        string caption,
+        IFormFile file,
+        string? externalCompanyCamId,
+        bool customerVisible,
+        string publicBaseUrl,
+        string webRootPath,
+        CancellationToken ct = default)
+    {
+        if (file.Length <= 0)
+        {
+            throw new InvalidOperationException("Empty file.");
+        }
+
+        if (file.Length > 12 * 1024 * 1024)
+        {
+            throw new InvalidOperationException("Image must be 12 MB or smaller.");
+        }
+
+        var contentType = file.ContentType?.ToLowerInvariant() ?? "";
+        if (!contentType.StartsWith("image/"))
+        {
+            throw new InvalidOperationException("Only image files are allowed.");
+        }
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext) || ext.Length > 8)
+        {
+            ext = contentType switch
+            {
+                "image/png" => ".png",
+                "image/webp" => ".webp",
+                "image/gif" => ".gif",
+                _ => ".jpg",
+            };
+        }
+
+        var uploadsDir = Path.Combine(webRootPath, "uploads");
+        Directory.CreateDirectory(uploadsDir);
+        var id = Guid.NewGuid();
+        var fileName = $"{id:N}{ext.ToLowerInvariant()}";
+        var diskPath = Path.Combine(uploadsDir, fileName);
+        await using (var stream = File.Create(diskPath))
+        {
+            await file.CopyToAsync(stream, ct);
+        }
+
+        var imageUrl = $"{publicBaseUrl.TrimEnd('/')}/uploads/{fileName}";
+        return await CreateAsync(
+            orgId,
+            new EvidenceWriteRequest(
+                jobId,
+                caption,
+                imageUrl,
+                externalCompanyCamId,
+                customerVisible,
+                DateTimeOffset.UtcNow),
+            ct);
+    }
+
     public async Task<EvidenceDto?> UpdateAsync(Guid orgId, Guid id, EvidenceWriteRequest req, CancellationToken ct = default)
     {
         var entity = await db.Photos.FirstOrDefaultAsync(x => x.OrganizationId == orgId && x.Id == id, ct);

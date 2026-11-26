@@ -148,6 +148,15 @@ if (!app.Environment.IsProduction())
     app.UseSwaggerUI();
 }
 
+// Local evidence uploads — portal/staff <img> tags need public /uploads/*
+var webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads"));
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRoot),
+    RequestPath = ""
+});
+
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();

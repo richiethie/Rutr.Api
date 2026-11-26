@@ -7,3 +7,7 @@ obj/
 secrets.json
 .vs/
 .idea/
+
+# Local evidence uploads (keep folder via .gitkeep)
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
