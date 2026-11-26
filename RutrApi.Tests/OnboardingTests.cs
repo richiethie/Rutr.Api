@@ -96,6 +96,13 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var inviteToken = inviteBody.GetProperty("inviteToken").GetString();
         inviteToken.Should().StartWith("inv_");
 
+        var listed = await authed.GetAsync("/api/v1/organizations/current/invites");
+        listed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var listedBody = await listed.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        listedBody.EnumerateArray().Any(x =>
+            x.GetProperty("email").GetString() == inviteEmail
+            && x.GetProperty("status").GetString() == "Pending").Should().BeTrue();
+
         var accept = await _client.PostAsJsonAsync("/api/v1/auth/accept-invite", new
         {
             inviteToken,

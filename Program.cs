@@ -145,6 +145,7 @@ using (var scope = app.Services.CreateScope())
 
 if (!app.Environment.IsProduction())
 {
+    app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
@@ -160,7 +161,10 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
-app.UseExceptionHandler();
+if (app.Environment.IsProduction())
+{
+    app.UseExceptionHandler();
+}
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

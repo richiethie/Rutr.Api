@@ -143,11 +143,14 @@ public class OnboardingService(
     public async Task<IReadOnlyList<InviteDto>> ListInvitesAsync(Guid orgId, string actorRole, CancellationToken ct = default)
     {
         EnsureAdmin(actorRole);
+        // Order in-memory — SQLite cannot ORDER BY DateTimeOffset in SQL.
         var rows = await db.StaffInvites.AsNoTracking()
             .Where(i => i.OrganizationId == orgId)
-            .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(ct);
-        return rows.Select(MapInvite).ToList();
+        return rows
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(MapInvite)
+            .ToList();
     }
 
     public async Task<SignupResponse> AcceptInviteAsync(AcceptInviteRequest request, CancellationToken ct = default)
