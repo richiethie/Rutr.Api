@@ -8,7 +8,7 @@ public class SignupRequestValidator : AbstractValidator<SignupRequest>
     public SignupRequestValidator()
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(6).MaximumLength(128);
+        RuleFor(x => x.Password).StaffPassword();
         RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(120);
         RuleFor(x => x.OrganizationName).NotEmpty().MaximumLength(160);
         RuleFor(x => x.BrandPrimaryColor).MaximumLength(32).When(x => x.BrandPrimaryColor is not null);
@@ -26,7 +26,8 @@ public class AddStaffMemberRequestValidator : AbstractValidator<AddStaffMemberRe
         RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(120);
         RuleFor(x => x.Role).NotEmpty().Must(r => r is "Admin" or "Pm" or "Sales")
             .WithMessage("Role must be Admin, Pm, or Sales.");
-        RuleFor(x => x.TemporaryPassword).NotEmpty().MinimumLength(6).MaximumLength(128);
+        // Same strength as signup — temp passwords are real login credentials.
+        RuleFor(x => x.TemporaryPassword).StaffPassword();
     }
 }
 
@@ -46,7 +47,7 @@ public class AcceptInviteRequestValidator : AbstractValidator<AcceptInviteReques
     public AcceptInviteRequestValidator()
     {
         RuleFor(x => x.InviteToken).NotEmpty().MaximumLength(128);
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(6).MaximumLength(128);
+        RuleFor(x => x.Password).StaffPassword();
         RuleFor(x => x.DisplayName).MaximumLength(120).When(x => x.DisplayName is not null);
     }
 }

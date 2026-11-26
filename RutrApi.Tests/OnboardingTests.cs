@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Rutr.Api.Models.Validators;
 
 namespace RutrApi.Tests;
 
@@ -12,6 +13,7 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
     private readonly RutrApiFactory _factory;
     private readonly HttpClient _client;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private const string StrongPassword = "secure-pass1";
 
     public OnboardingTests(RutrApiFactory factory)
     {
@@ -26,7 +28,7 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
         {
             email,
-            password = "secure-pass",
+            password = StrongPassword,
             displayName = "Jamie Acme",
             organizationName = "Acme Roofing"
         });
@@ -39,11 +41,74 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var dup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
         {
             email,
-            password = "secure-pass",
+            password = StrongPassword,
             displayName = "Jamie Acme",
             organizationName = "Acme Roofing 2"
         });
         dup.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Signup_rejects_weak_passwords_with_clear_messages()
+    {
+        async Task<JsonElement> SignupWith(string password)
+        {
+            var response = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
+            {
+                email = $"weak-{Guid.NewGuid():N}@acme.test",
+                password,
+                displayName = "Weak User",
+                organizationName = "Weak Org"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        }
+
+        var tooShort = await SignupWith("Ab1");
+        PasswordErrors(tooShort).Should().Contain(StaffPasswordRules.MinLengthMessage);
+
+        var noNumber = await SignupWith("abcdefgh");
+        PasswordErrors(noNumber).Should().Contain(StaffPasswordRules.NumberMessage);
+
+        var noLetter = await SignupWith("12345678");
+        PasswordErrors(noLetter).Should().Contain(StaffPasswordRules.LetterMessage);
+    }
+
+    [Fact]
+    public async Task Accept_invite_rejects_weak_password()
+    {
+        var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
+        {
+            email = $"admin-{Guid.NewGuid():N}@acme.test",
+            password = StrongPassword,
+            displayName = "Owner",
+            organizationName = $"Org {Guid.NewGuid():N}"[..20]
+        });
+        signup.EnsureSuccessStatusCode();
+        var token = (await signup.Content.ReadFromJsonAsync<JsonElement>(JsonOptions)).GetProperty("token").GetString()!;
+
+        using var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var invite = await authed.PostAsJsonAsync("/api/v1/organizations/current/invites", new
+        {
+            email = $"sales-{Guid.NewGuid():N}@acme.test",
+            displayName = "Sam Sales",
+            role = "Sales"
+        });
+        invite.EnsureSuccessStatusCode();
+        var inviteToken = (await invite.Content.ReadFromJsonAsync<JsonElement>(JsonOptions))
+            .GetProperty("inviteToken").GetString();
+
+        var weak = await _client.PostAsJsonAsync("/api/v1/auth/accept-invite", new
+        {
+            inviteToken,
+            password = "short1",
+            displayName = "Sam Sales"
+        });
+        weak.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await weak.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        PasswordErrors(body).Should().Contain(StaffPasswordRules.MinLengthMessage);
     }
 
     [Fact]
@@ -64,7 +129,7 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
         {
             email = ownerEmail,
-            password = "secure-pass",
+            password = StrongPassword,
             displayName = "Owner",
             organizationName = $"Org {Guid.NewGuid():N}"[..20]
         });
@@ -106,7 +171,7 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var accept = await _client.PostAsJsonAsync("/api/v1/auth/accept-invite", new
         {
             inviteToken,
-            password = "secure-pass",
+            password = StrongPassword,
             displayName = "Sam Sales"
         });
         accept.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -121,7 +186,7 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
         {
             email = $"import-{Guid.NewGuid():N}@acme.test",
-            password = "secure-pass",
+            password = StrongPassword,
             displayName = "Importer",
             organizationName = $"Import Org {Guid.NewGuid():N}"[..24]
         });
@@ -169,5 +234,31 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         json.Should().Contain("/api/v1/auth/signup");
         json.Should().Contain("/api/v1/onboarding/import");
         json.Should().Contain("/api/v1/organizations/current/invites");
+    }
+
+    private static IEnumerable<string> PasswordErrors(JsonElement problem)
+    {
+        if (!problem.TryGetProperty("errors", out var errors))
+        {
+            yield break;
+        }
+
+        foreach (var prop in errors.EnumerateObject())
+        {
+            if (!prop.Name.Contains("password", StringComparison.OrdinalIgnoreCase)
+                && !prop.Name.Contains("TemporaryPassword", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (var msg in prop.Value.EnumerateArray())
+            {
+                var text = msg.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    yield return text!;
+                }
+            }
+        }
     }
 }
