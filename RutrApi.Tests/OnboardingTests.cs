@@ -64,14 +64,17 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
             return await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         }
 
-        var tooShort = await SignupWith("Ab1");
+        var tooShort = await SignupWith("Ab1!");
         PasswordErrors(tooShort).Should().Contain(StaffPasswordRules.MinLengthMessage);
 
-        var noNumber = await SignupWith("abcdefgh");
+        var noNumber = await SignupWith("abcdefg!");
         PasswordErrors(noNumber).Should().Contain(StaffPasswordRules.NumberMessage);
 
-        var noLetter = await SignupWith("12345678");
+        var noLetter = await SignupWith("1234567!");
         PasswordErrors(noLetter).Should().Contain(StaffPasswordRules.LetterMessage);
+
+        var noSpecial = await SignupWith("abcdefg1");
+        PasswordErrors(noSpecial).Should().Contain(StaffPasswordRules.SpecialMessage);
     }
 
     [Fact]
