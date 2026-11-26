@@ -65,6 +65,7 @@ public record ApprovalQueueItemDto(
     string Subject,
     string Body,
     string EvidenceSummary,
+    string Status,
     DateTimeOffset CreatedAt);
 
 public record PortalMilestoneDto(string Name, string Status, DateTimeOffset? CompletedAt);

@@ -44,6 +44,12 @@ public class ConnectFlowTests : IClassFixture<RutrApiFactory>
         var approved = await approve.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         approved.GetProperty("status").GetString().Should().Be("Approved");
 
+        // Approved drafts stay on the queue so the UI can Approve → Send.
+        var queueAfterApprove = await _client.GetFromJsonAsync<JsonElement>("/api/v1/approvals", JsonOptions);
+        var stillQueued = queueAfterApprove.EnumerateArray()
+            .First(x => x.GetProperty("draftId").GetGuid() == draftId);
+        stillQueued.GetProperty("status").GetString().Should().Be("Approved");
+
         var send = await _client.PostAsync($"/api/v1/approvals/{draftId}/send", null);
         send.StatusCode.Should().Be(HttpStatusCode.OK);
         var sent = await send.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);

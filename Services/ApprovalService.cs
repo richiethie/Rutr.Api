@@ -9,9 +9,12 @@ public class ApprovalService(RutrDbContext db, AuditService audit, MockDigestSen
 {
     public async Task<IReadOnlyList<ApprovalQueueItemDto>> QueueAsync(Guid organizationId, CancellationToken ct = default)
     {
+        // Include Approved so PMs can Approve → Send on /approvals without the row vanishing.
         var rows = await db.MessageDrafts
             .AsNoTracking()
-            .Where(d => d.OrganizationId == organizationId && d.Status == "PendingApproval")
+            .Where(d =>
+                d.OrganizationId == organizationId
+                && (d.Status == "PendingApproval" || d.Status == "Approved"))
             .Select(d => new ApprovalQueueItemDto(
                 d.Id,
                 d.JobId,
@@ -21,10 +24,14 @@ public class ApprovalService(RutrDbContext db, AuditService audit, MockDigestSen
                 d.Subject,
                 d.Body,
                 d.EvidenceSummary,
+                d.Status,
                 d.CreatedAt))
             .ToListAsync(ct);
 
-        return rows.OrderBy(d => d.CreatedAt).ToList();
+        return rows
+            .OrderBy(d => d.Status == "PendingApproval" ? 0 : 1)
+            .ThenBy(d => d.CreatedAt)
+            .ToList();
     }
 
     public async Task<MessageDraftDto?> ApproveAsync(
