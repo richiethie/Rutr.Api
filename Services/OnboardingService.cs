@@ -20,6 +20,15 @@ public class OnboardingService(
         "Admin", "Pm", "Sales"
     };
 
+    /// <summary>
+    /// Idempotency: within the caller's org, a job with the same ExternalJobNimbusId / CSV externalId
+    /// is skipped on re-import (no duplicate, no upsert of existing job fields).
+    /// </summary>
+    public const string ImportIdempotencyRule =
+        "Within the caller's organization, jobs are keyed by externalId (ExternalJobNimbusId). " +
+        "Re-import of the same externalId skips that row (no duplicate job). " +
+        "Contacts reuse org email match; properties reuse addressLine1+postalCode.";
+
     public async Task<SignupResponse> SignupAsync(SignupRequest request, CancellationToken ct = default)
     {
         var email = NormalizeEmail(request.Email);
@@ -270,18 +279,20 @@ public class OnboardingService(
     public async Task<OnboardingImportResult> ImportAsync(Guid orgId, OnboardingImportRequest request, CancellationToken ct = default)
     {
         var source = (request.Source ?? "").Trim().ToLowerInvariant();
+        var dryRun = request.DryRun;
         return source switch
         {
-            "jobnimbus" => await ImportJobNimbusAsync(orgId, ct),
-            "csv" => await ImportCsvAsync(orgId, request.CsvContent, ct),
+            "jobnimbus" => await ImportJobNimbusAsync(orgId, dryRun, ct),
+            "csv" => await ImportCsvAsync(orgId, request.CsvContent, dryRun, ct),
             _ => throw new InvalidOperationException("Source must be jobnimbus or csv.")
         };
     }
 
-    private async Task<OnboardingImportResult> ImportJobNimbusAsync(Guid orgId, CancellationToken ct)
+    private async Task<OnboardingImportResult> ImportJobNimbusAsync(Guid orgId, bool dryRun, CancellationToken ct)
     {
         var payloads = await jobNimbus.FetchJobsAsync(orgId, ct);
         var warnings = new List<string>();
+        var errors = new List<OnboardingImportError>();
         var contacts = 0;
         var properties = 0;
         var jobs = 0;
@@ -294,30 +305,39 @@ public class OnboardingService(
                     j => j.OrganizationId == orgId && j.ExternalJobNimbusId == payload.ExternalId, ct))
             {
                 skipped++;
+                errors.Add(new OnboardingImportError(
+                    null,
+                    payload.ExternalId,
+                    "duplicate_external_id",
+                    $"Skipped existing externalId '{payload.ExternalId}' (idempotent)."));
                 continue;
             }
 
             var (first, last) = SplitName(payload.HomeownerName);
+            var email = payload.HomeownerEmail.Trim().ToLowerInvariant();
             var contact = await db.Contacts.FirstOrDefaultAsync(
-                c => c.OrganizationId == orgId && c.Email == payload.HomeownerEmail.ToLowerInvariant(), ct);
+                c => c.OrganizationId == orgId && c.Email == email, ct);
             if (contact is null)
             {
-                contact = new Contact
-                {
-                    Id = Guid.NewGuid(),
-                    OrganizationId = orgId,
-                    FirstName = first,
-                    LastName = last,
-                    Email = payload.HomeownerEmail.Trim().ToLowerInvariant(),
-                    Phone = payload.HomeownerPhone,
-                    Role = "Homeowner",
-                    PreferredChannel = "Sms",
-                    Language = "en",
-                    CreatedAt = now,
-                    UpdatedAt = now
-                };
-                db.Contacts.Add(contact);
                 contacts++;
+                if (!dryRun)
+                {
+                    contact = new Contact
+                    {
+                        Id = Guid.NewGuid(),
+                        OrganizationId = orgId,
+                        FirstName = first,
+                        LastName = last,
+                        Email = email,
+                        Phone = payload.HomeownerPhone,
+                        Role = "Homeowner",
+                        PreferredChannel = "Sms",
+                        Language = "en",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.Contacts.Add(contact);
+                }
             }
 
             var property = await db.Properties.FirstOrDefaultAsync(
@@ -326,62 +346,79 @@ public class OnboardingService(
                      && p.PostalCode == payload.PostalCode, ct);
             if (property is null)
             {
-                property = new Property
+                properties++;
+                if (!dryRun)
+                {
+                    property = new Property
+                    {
+                        Id = Guid.NewGuid(),
+                        OrganizationId = orgId,
+                        AddressLine1 = payload.AddressLine1,
+                        City = payload.City,
+                        State = payload.State,
+                        PostalCode = payload.PostalCode,
+                        PropertyType = "Residential",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.Properties.Add(property);
+                }
+            }
+
+            jobs++;
+            if (!dryRun && contact is not null && property is not null)
+            {
+                db.Jobs.Add(new Job
                 {
                     Id = Guid.NewGuid(),
                     OrganizationId = orgId,
+                    PropertyId = property.Id,
+                    PrimaryContactId = contact.Id,
+                    ExternalJobNimbusId = payload.ExternalId,
+                    Title = $"{payload.HomeownerName} — {payload.AddressLine1}",
+                    JobType = "Retail",
                     AddressLine1 = payload.AddressLine1,
                     City = payload.City,
                     State = payload.State,
                     PostalCode = payload.PostalCode,
-                    PropertyType = "Residential",
+                    HomeownerName = payload.HomeownerName,
+                    HomeownerEmail = payload.HomeownerEmail,
+                    HomeownerPhone = payload.HomeownerPhone,
+                    Status = payload.Status,
+                    Stage = payload.Stage,
                     CreatedAt = now,
                     UpdatedAt = now
-                };
-                db.Properties.Add(property);
-                properties++;
+                });
             }
-
-            db.Jobs.Add(new Job
-            {
-                Id = Guid.NewGuid(),
-                OrganizationId = orgId,
-                PropertyId = property.Id,
-                PrimaryContactId = contact.Id,
-                ExternalJobNimbusId = payload.ExternalId,
-                Title = $"{payload.HomeownerName} — {payload.AddressLine1}",
-                JobType = "Retail",
-                AddressLine1 = payload.AddressLine1,
-                City = payload.City,
-                State = payload.State,
-                PostalCode = payload.PostalCode,
-                HomeownerName = payload.HomeownerName,
-                HomeownerEmail = payload.HomeownerEmail,
-                HomeownerPhone = payload.HomeownerPhone,
-                Status = payload.Status,
-                Stage = payload.Stage,
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-            jobs++;
         }
 
-        await db.SaveChangesAsync(ct);
+        if (!dryRun)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
         logger.LogInformation(
-            "Onboarding JN import for org {OrgId}: contacts={Contacts} properties={Properties} jobs={Jobs} skipped={Skipped}",
-            orgId, contacts, properties, jobs, skipped);
+            "Onboarding JN import org {OrgId} dryRun={DryRun}: contacts={Contacts} properties={Properties} jobs={Jobs} skipped={Skipped}",
+            orgId, dryRun, contacts, properties, jobs, skipped);
 
         return new OnboardingImportResult(
             "jobnimbus",
+            dryRun,
             contacts,
             properties,
             jobs,
             skipped,
             warnings,
-            "Imported mock JobNimbus snapshot.");
+            errors,
+            ImportIdempotencyRule,
+            dryRun ? "Dry-run mock JobNimbus snapshot (no writes)." : "Imported mock JobNimbus snapshot.");
     }
 
-    private async Task<OnboardingImportResult> ImportCsvAsync(Guid orgId, string? csvContent, CancellationToken ct)
+    private async Task<OnboardingImportResult> ImportCsvAsync(
+        Guid orgId,
+        string? csvContent,
+        bool dryRun,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(csvContent))
         {
@@ -396,57 +433,91 @@ public class OnboardingService(
             throw new InvalidOperationException("CSV must include a header row and at least one data row.");
         }
 
-        var header = ParseCsvLine(lines[0]).Select(h => h.Trim().ToLowerInvariant()).ToArray();
-        string Col(string[] row, string name)
+        var rawHeaders = ParseCsvLine(lines[0]).Select(h => h.Trim()).ToArray();
+        var headerMap = BuildCsvHeaderMap(rawHeaders);
+        var warnings = new List<string>();
+        var errors = new List<OnboardingImportError>();
+
+        foreach (var h in rawHeaders.Where(h => !string.IsNullOrWhiteSpace(h)))
         {
-            var idx = Array.IndexOf(header, name.ToLowerInvariant());
-            return idx >= 0 && idx < row.Length ? row[idx].Trim() : "";
+            if (ResolveCanonicalHeader(h) is null)
+            {
+                warnings.Add($"Unmapped column '{h}' ignored.");
+                errors.Add(new OnboardingImportError(1, null, "unmatched_column", $"Column '{h}' is not in the JN/CSV field map and was ignored."));
+            }
         }
 
-        var warnings = new List<string>();
+        string Col(IReadOnlyList<string> row, string canonical)
+        {
+            if (!headerMap.TryGetValue(canonical, out var idx) || idx < 0 || idx >= row.Count)
+            {
+                return "";
+            }
+
+            return row[idx].Trim();
+        }
+
         var contacts = 0;
         var properties = 0;
         var jobs = 0;
         var skipped = 0;
         var now = DateTimeOffset.UtcNow;
+        // Track externalIds we would create in this batch so dry-run / multi-row dupes are consistent.
+        var pendingExternalIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (var i = 1; i < lines.Length; i++)
         {
+            var rowNumber = i + 1;
             var row = ParseCsvLine(lines[i]);
             if (row.Count == 0 || row.All(string.IsNullOrWhiteSpace))
             {
                 continue;
             }
 
-            var externalId = Col(row.ToArray(), "externalId");
+            var externalId = Col(row, "externalId");
             if (string.IsNullOrWhiteSpace(externalId))
             {
-                externalId = $"csv-{Guid.NewGuid():N}"[..16];
+                externalId = dryRun ? $"csv-dry-{rowNumber}" : $"csv-{Guid.NewGuid():N}"[..16];
+                warnings.Add($"Row {rowNumber}: no externalId — generated '{externalId}'.");
             }
 
-            if (await db.Jobs.AnyAsync(j => j.OrganizationId == orgId && j.ExternalJobNimbusId == externalId, ct))
+            if (pendingExternalIds.Contains(externalId)
+                || await db.Jobs.AnyAsync(j => j.OrganizationId == orgId && j.ExternalJobNimbusId == externalId, ct))
             {
                 skipped++;
+                errors.Add(new OnboardingImportError(
+                    rowNumber,
+                    externalId,
+                    "duplicate_external_id",
+                    $"Skipped existing or duplicate-in-file externalId '{externalId}'."));
                 continue;
             }
 
-            var firstName = Col(row.ToArray(), "firstName");
-            var lastName = Col(row.ToArray(), "lastName");
-            var email = Col(row.ToArray(), "email").ToLowerInvariant();
-            var phone = Col(row.ToArray(), "phone");
-            var address = Col(row.ToArray(), "addressLine1");
-            var city = Col(row.ToArray(), "city");
-            var state = Col(row.ToArray(), "state");
-            var postal = Col(row.ToArray(), "postalCode");
-            var jobTitle = Col(row.ToArray(), "jobTitle");
-            var jobType = Col(row.ToArray(), "jobType");
-            var status = Col(row.ToArray(), "status");
-            var stage = Col(row.ToArray(), "stage");
+            var firstName = Col(row, "firstName");
+            var lastName = Col(row, "lastName");
+            var displayName = Col(row, "displayName");
+            if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName) && !string.IsNullOrWhiteSpace(displayName))
+            {
+                (firstName, lastName) = SplitName(displayName);
+            }
+
+            var email = Col(row, "email").ToLowerInvariant();
+            var phone = Col(row, "phone");
+            var address = Col(row, "addressLine1");
+            var city = Col(row, "city");
+            var state = Col(row, "state");
+            var postal = Col(row, "postalCode");
+            var jobTitle = Col(row, "jobTitle");
+            var jobType = Col(row, "jobType");
+            var status = Col(row, "status");
+            var stage = Col(row, "stage");
 
             if (string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(email))
             {
-                warnings.Add($"Row {i + 1}: skipped — email and addressLine1 are required.");
                 skipped++;
+                var msg = $"Row {rowNumber}: skipped — email and addressLine1 (or JN Address) are required.";
+                warnings.Add(msg);
+                errors.Add(new OnboardingImportError(rowNumber, externalId, "missing_required", msg));
                 continue;
             }
 
@@ -454,78 +525,141 @@ public class OnboardingService(
                 c => c.OrganizationId == orgId && c.Email == email, ct);
             if (contact is null)
             {
-                contact = new Contact
-                {
-                    Id = Guid.NewGuid(),
-                    OrganizationId = orgId,
-                    FirstName = string.IsNullOrWhiteSpace(firstName) ? "Imported" : firstName,
-                    LastName = string.IsNullOrWhiteSpace(lastName) ? "Contact" : lastName,
-                    Email = email,
-                    Phone = phone,
-                    Role = "Homeowner",
-                    PreferredChannel = "Sms",
-                    Language = "en",
-                    CreatedAt = now,
-                    UpdatedAt = now
-                };
-                db.Contacts.Add(contact);
                 contacts++;
+                if (!dryRun)
+                {
+                    contact = new Contact
+                    {
+                        Id = Guid.NewGuid(),
+                        OrganizationId = orgId,
+                        FirstName = string.IsNullOrWhiteSpace(firstName) ? "Imported" : firstName,
+                        LastName = string.IsNullOrWhiteSpace(lastName) ? "Contact" : lastName,
+                        Email = email,
+                        Phone = phone,
+                        Role = "Homeowner",
+                        PreferredChannel = "Sms",
+                        Language = "en",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.Contacts.Add(contact);
+                }
             }
 
             var property = await db.Properties.FirstOrDefaultAsync(
                 p => p.OrganizationId == orgId && p.AddressLine1 == address && p.PostalCode == postal, ct);
             if (property is null)
             {
-                property = new Property
+                properties++;
+                if (!dryRun)
+                {
+                    property = new Property
+                    {
+                        Id = Guid.NewGuid(),
+                        OrganizationId = orgId,
+                        AddressLine1 = address,
+                        City = city,
+                        State = state,
+                        PostalCode = postal,
+                        PropertyType = "Residential",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    };
+                    db.Properties.Add(property);
+                }
+            }
+
+            jobs++;
+            pendingExternalIds.Add(externalId);
+            if (!dryRun && contact is not null && property is not null)
+            {
+                var homeownerName = $"{contact.FirstName} {contact.LastName}".Trim();
+                db.Jobs.Add(new Job
                 {
                     Id = Guid.NewGuid(),
                     OrganizationId = orgId,
+                    PropertyId = property.Id,
+                    PrimaryContactId = contact.Id,
+                    ExternalJobNimbusId = externalId,
+                    Title = string.IsNullOrWhiteSpace(jobTitle) ? $"{homeownerName} — {address}" : jobTitle,
+                    JobType = string.IsNullOrWhiteSpace(jobType) ? "Retail" : jobType,
                     AddressLine1 = address,
                     City = city,
                     State = state,
                     PostalCode = postal,
-                    PropertyType = "Residential",
+                    HomeownerName = homeownerName,
+                    HomeownerEmail = email,
+                    HomeownerPhone = phone,
+                    Status = string.IsNullOrWhiteSpace(status) ? "InProgress" : status,
+                    Stage = string.IsNullOrWhiteSpace(stage) ? "Inspect" : stage,
                     CreatedAt = now,
                     UpdatedAt = now
-                };
-                db.Properties.Add(property);
-                properties++;
+                });
             }
-
-            var homeownerName = $"{contact.FirstName} {contact.LastName}".Trim();
-            db.Jobs.Add(new Job
-            {
-                Id = Guid.NewGuid(),
-                OrganizationId = orgId,
-                PropertyId = property.Id,
-                PrimaryContactId = contact.Id,
-                ExternalJobNimbusId = externalId,
-                Title = string.IsNullOrWhiteSpace(jobTitle) ? $"{homeownerName} — {address}" : jobTitle,
-                JobType = string.IsNullOrWhiteSpace(jobType) ? "Retail" : jobType,
-                AddressLine1 = address,
-                City = city,
-                State = state,
-                PostalCode = postal,
-                HomeownerName = homeownerName,
-                HomeownerEmail = email,
-                HomeownerPhone = phone,
-                Status = string.IsNullOrWhiteSpace(status) ? "InProgress" : status,
-                Stage = string.IsNullOrWhiteSpace(stage) ? "Inspect" : stage,
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-            jobs++;
         }
 
-        await db.SaveChangesAsync(ct);
+        if (!dryRun)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
         return new OnboardingImportResult(
             "csv",
+            dryRun,
             contacts,
             properties,
             jobs,
             skipped,
             warnings,
-            "Imported CSV migration snapshot.");
+            errors,
+            ImportIdempotencyRule,
+            dryRun ? "Dry-run CSV migration (no writes)." : "Imported CSV migration snapshot.");
+    }
+
+    /// <summary>Map raw CSV header index → canonical field key.</summary>
+    private static Dictionary<string, int> BuildCsvHeaderMap(IReadOnlyList<string> rawHeaders)
+    {
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < rawHeaders.Count; i++)
+        {
+            var canonical = ResolveCanonicalHeader(rawHeaders[i]);
+            if (canonical is null || map.ContainsKey(canonical))
+            {
+                continue;
+            }
+
+            map[canonical] = i;
+        }
+
+        return map;
+    }
+
+    private static string NormalizeHeader(string header) =>
+        Regex.Replace(header.Trim().ToLowerInvariant(), @"[\s_\-]+", "");
+
+    /// <summary>JN report-style aliases → canonical RUTR import fields.</summary>
+    private static string? ResolveCanonicalHeader(string header)
+    {
+        var key = NormalizeHeader(header);
+        return key switch
+        {
+            "externalid" or "externaljobnimbusid" or "jobnumber" or "jnid" or "jobid" or "recordid" => "externalId",
+            "firstname" or "first" or "contactfirstname" => "firstName",
+            "lastname" or "last" or "contactlastname" => "lastName",
+            "displayname" or "contactname" or "customername" or "homeownername" or "homeowner" => "displayName",
+            "email" or "contactemail" or "homeowneremail" or "primaryemail" => "email",
+            "phone" or "mobile" or "contactphone" or "homeownerphone" or "primaryphone" => "phone",
+            "addressline1" or "address" or "street" or "street1" or "jobaddress" => "addressLine1",
+            "city" => "city",
+            "state" or "province" => "state",
+            "postalcode" or "zip" or "zipcode" or "postal" => "postalCode",
+            // JN jobs report often uses "Name" for the job title.
+            "jobtitle" or "jobname" or "title" or "subject" or "name" => "jobTitle",
+            "jobtype" or "type" or "worktype" => "jobType",
+            "status" or "jobstatus" => "status",
+            "stage" or "pipeline" or "board" => "stage",
+            _ => null
+        };
     }
 
     private SignupResponse ToSignupResponse(StaffUser user, Organization org) =>

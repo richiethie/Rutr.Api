@@ -4325,6 +4325,29 @@
         },
         "additionalProperties": false
       },
+      "OnboardingImportError": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "OnboardingImportRequest": {
         "type": "object",
         "properties": {
@@ -4335,6 +4358,9 @@
           "csvContent": {
             "type": "string",
             "nullable": true
+          },
+          "dryRun": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -4345,6 +4371,9 @@
           "source": {
             "type": "string",
             "nullable": true
+          },
+          "dryRun": {
+            "type": "boolean"
           },
           "contactsCreated": {
             "type": "integer",
@@ -4367,6 +4396,17 @@
             "items": {
               "type": "string"
             },
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnboardingImportError"
+            },
+            "nullable": true
+          },
+          "idempotencyRule": {
+            "type": "string",
             "nullable": true
           },
           "message": {

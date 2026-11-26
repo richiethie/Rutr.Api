@@ -55,15 +55,26 @@ public record OnboardingSeedResult(
 
 public record OnboardingImportRequest(
     string Source,
-    string? CsvContent);
+    string? CsvContent,
+    bool DryRun = false);
+
+/// <summary>Unmatched / invalid row detail for Web import summary.</summary>
+public record OnboardingImportError(
+    int? RowNumber,
+    string? ExternalId,
+    string Code,
+    string Message);
 
 public record OnboardingImportResult(
     string Source,
+    bool DryRun,
     int ContactsCreated,
     int PropertiesCreated,
     int JobsCreated,
     int Skipped,
     IReadOnlyList<string> Warnings,
+    IReadOnlyList<OnboardingImportError> Errors,
+    string IdempotencyRule,
     string Message);
 
 /// <summary>Multipart form for evidence upload (keeps Swagger/OpenAPI healthy).</summary>

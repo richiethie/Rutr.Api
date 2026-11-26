@@ -255,13 +255,16 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var import = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new
         {
             source = "jobnimbus",
-            csvContent = (string?)null
+            csvContent = (string?)null,
+            dryRun = false
         });
         import.StatusCode.Should().Be(HttpStatusCode.OK);
         var importBody = await import.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         importBody.GetProperty("jobsCreated").GetInt32().Should().BeGreaterThan(0);
         importBody.GetProperty("contactsCreated").GetInt32().Should().BeGreaterThan(0);
         importBody.GetProperty("propertiesCreated").GetInt32().Should().BeGreaterThan(0);
+        importBody.GetProperty("dryRun").GetBoolean().Should().BeFalse();
+        importBody.GetProperty("idempotencyRule").GetString().Should().Contain("externalId");
 
         var csv = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new
         {
@@ -273,6 +276,80 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         csv.StatusCode.Should().Be(HttpStatusCode.OK);
         var csvBody = await csv.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         csvBody.GetProperty("jobsCreated").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Import_dryRun_and_idempotency_and_tenancy()
+    {
+        var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
+        {
+            email = $"p2-{Guid.NewGuid():N}@acme.test",
+            password = StrongPassword,
+            displayName = "Phase2",
+            organizationName = $"P2 Org {Guid.NewGuid():N}"[..20]
+        });
+        signup.EnsureSuccessStatusCode();
+        var signupBody = await signup.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var token = signupBody.GetProperty("token").GetString()!;
+        var orgId = signupBody.GetProperty("organizationId").GetGuid();
+
+        using var authed = _factory.CreateClient();
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var dry = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new
+        {
+            source = "jobnimbus",
+            dryRun = true
+        });
+        dry.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dryBody = await dry.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        dryBody.GetProperty("dryRun").GetBoolean().Should().BeTrue();
+        dryBody.GetProperty("jobsCreated").GetInt32().Should().BeGreaterThan(0);
+
+        var jobsAfterDry = await authed.GetFromJsonAsync<JsonElement>("/api/v1/jobs", JsonOptions);
+        jobsAfterDry.GetArrayLength().Should().Be(0, because: "dryRun must not write");
+
+        var live = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new { source = "jobnimbus", dryRun = false });
+        live.EnsureSuccessStatusCode();
+        var liveBody = await live.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var created = liveBody.GetProperty("jobsCreated").GetInt32();
+        created.Should().BeGreaterThan(0);
+
+        var again = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new { source = "jobnimbus" });
+        again.EnsureSuccessStatusCode();
+        var againBody = await again.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        againBody.GetProperty("jobsCreated").GetInt32().Should().Be(0);
+        againBody.GetProperty("skipped").GetInt32().Should().Be(created);
+        againBody.GetProperty("errors").GetArrayLength().Should().BeGreaterThan(0);
+
+        var jobs = await authed.GetFromJsonAsync<JsonElement>("/api/v1/jobs", JsonOptions);
+        jobs.GetArrayLength().Should().Be(created);
+        foreach (var job in jobs.EnumerateArray())
+        {
+            // Org-scoped list — none should be Rutters seed IDs from fixed Guid set.
+            job.GetProperty("id").GetGuid().Should().NotBe(Guid.Parse("33333333-3333-3333-3333-333333333331"));
+        }
+
+        // JN-style headers + bad row
+        var jnCsv = await authed.PostAsJsonAsync("/api/v1/onboarding/import", new
+        {
+            source = "csv",
+            dryRun = false,
+            csvContent =
+                "Job Number,Contact Name,Email,Phone,Address,City,State,Zip,Name,Status,Stage,Extra Col\n" +
+                "jn-p2-1,Dana Keller,dana.p2@example.com,+13195550001,1 Main St,Cedar Falls,IA,50613,Keller job,InProgress,Build,ignored\n" +
+                "jn-p2-bad,,,+1,Missing Email St,Cedar Falls,IA,50613,Bad,InProgress,Build,\n"
+        });
+        jnCsv.EnsureSuccessStatusCode();
+        var jnBody = await jnCsv.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        jnBody.GetProperty("jobsCreated").GetInt32().Should().Be(1);
+        jnBody.GetProperty("skipped").GetInt32().Should().BeGreaterThan(0);
+        jnBody.GetProperty("errors").EnumerateArray()
+            .Any(e => e.GetProperty("code").GetString() == "missing_required").Should().BeTrue();
+        jnBody.GetProperty("errors").EnumerateArray()
+            .Any(e => e.GetProperty("code").GetString() == "unmatched_column").Should().BeTrue();
+
+        orgId.Should().NotBe(Guid.Parse("11111111-1111-1111-1111-111111111111"));
     }
 
     [Fact]
