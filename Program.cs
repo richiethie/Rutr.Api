@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -48,6 +50,15 @@ builder.Services
     {
         options.ForwardDefaultSelector = context =>
         {
+            // Prefer real JWT when present so signup/login orgs are not overridden by leftover X-Demo-Auth.
+            var auth = context.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrWhiteSpace(auth)
+                && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                && auth.Length > "Bearer ".Length)
+            {
+                return JwtBearerDefaults.AuthenticationScheme;
+            }
+
             if (context.Request.Headers.ContainsKey("X-Demo-Auth"))
             {
                 return DemoAuthHandler.SchemeName;
@@ -58,6 +69,7 @@ builder.Services
     })
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -66,7 +78,9 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = ClaimTypes.Role
         };
     })
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, DemoAuthHandler>(

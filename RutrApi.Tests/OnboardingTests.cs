@@ -125,6 +125,51 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
             password = "rutters-demo"
         });
         login.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await login.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        body.GetProperty("organizationName").GetString().Should().Contain("Rutters");
+        body.GetProperty("brandPrimaryColor").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Signup_me_and_current_org_return_created_brand_not_rutters()
+    {
+        var email = $"brand-{Guid.NewGuid():N}@acme.test";
+        const string brand = "#228B22";
+        var signup = await _client.PostAsJsonAsync("/api/v1/auth/signup", new
+        {
+            email,
+            password = StrongPassword,
+            displayName = "Brand Owner",
+            organizationName = "Greenfield Roofing",
+            brandPrimaryColor = brand
+        });
+        signup.StatusCode.Should().Be(HttpStatusCode.Created);
+        var signupBody = await signup.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        var token = signupBody.GetProperty("token").GetString()!;
+        var orgId = signupBody.GetProperty("organizationId").GetGuid();
+        signupBody.GetProperty("organization").GetProperty("name").GetString().Should().Be("Greenfield Roofing");
+        signupBody.GetProperty("organization").GetProperty("brandPrimaryColor").GetString().Should().Be(brand);
+        orgId.Should().NotBe(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+
+        using var authed = _factory.CreateClient();
+        // Leftover demo header must NOT override Bearer JWT (Web shell bug class).
+        authed.DefaultRequestHeaders.Add("X-Demo-Auth", "pm");
+        authed.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var me = await authed.GetAsync("/api/v1/auth/me");
+        me.StatusCode.Should().Be(HttpStatusCode.OK);
+        var meBody = await me.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        meBody.GetProperty("organizationId").GetGuid().Should().Be(orgId);
+        meBody.GetProperty("organizationName").GetString().Should().Be("Greenfield Roofing");
+        meBody.GetProperty("brandPrimaryColor").GetString().Should().Be(brand);
+        meBody.GetProperty("email").GetString().Should().Be(email);
+
+        var current = await authed.GetAsync("/api/v1/organizations/current");
+        current.StatusCode.Should().Be(HttpStatusCode.OK);
+        var orgBody = await current.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        orgBody.GetProperty("id").GetGuid().Should().Be(orgId);
+        orgBody.GetProperty("name").GetString().Should().Be("Greenfield Roofing");
+        orgBody.GetProperty("brandPrimaryColor").GetString().Should().Be(brand);
     }
 
     [Fact]

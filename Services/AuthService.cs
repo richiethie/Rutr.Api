@@ -12,6 +12,7 @@ public class AuthService(RutrDbContext db, JwtTokenService tokens)
         var hash = SeedData.HashPassword(request.Password);
         var user = await db.StaffUsers
             .AsNoTracking()
+            .Include(u => u.Organization)
             .FirstOrDefaultAsync(u => u.Email == request.Email && u.PasswordHash == hash, ct);
 
         if (user is null)
@@ -19,7 +20,13 @@ public class AuthService(RutrDbContext db, JwtTokenService tokens)
             return null;
         }
 
-        return new LoginResponse(tokens.CreateToken(user), user.DisplayName, user.Role, user.OrganizationId);
+        return new LoginResponse(
+            tokens.CreateToken(user),
+            user.DisplayName,
+            user.Role,
+            user.OrganizationId,
+            user.Organization.Name,
+            user.Organization.BrandPrimaryColor);
     }
 
     public async Task<StaffMeDto?> GetMeAsync(Guid staffUserId, CancellationToken ct = default)
@@ -40,6 +47,8 @@ public class AuthService(RutrDbContext db, JwtTokenService tokens)
             user.DisplayName,
             user.Role,
             user.OrganizationId,
-            user.Organization.Name);
+            user.Organization.Name,
+            user.Organization.BrandPrimaryColor,
+            user.Organization.Slug);
     }
 }

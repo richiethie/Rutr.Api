@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Rutr.Api.Data;
 using Rutr.Api.Models.Dtos;
 using Rutr.Api.Services;
 
@@ -61,8 +60,13 @@ public class AuthController(AuthService auth, OnboardingService onboarding) : Co
     [Authorize]
     public async Task<ActionResult<StaffMeDto>> Me(CancellationToken ct)
     {
-        var staffId = GetStaffId() ?? SeedData.PmUserId;
-        var me = await auth.GetMeAsync(staffId, ct);
+        var staffId = GetStaffId();
+        if (staffId is null)
+        {
+            return Unauthorized(new { error = "Missing staff identity on token." });
+        }
+
+        var me = await auth.GetMeAsync(staffId.Value, ct);
         return me is null ? NotFound() : Ok(me);
     }
 

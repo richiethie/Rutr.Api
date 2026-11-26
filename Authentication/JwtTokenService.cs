@@ -20,6 +20,7 @@ public class JwtTokenService(IOptions<JwtOptions> options)
             new(JwtRegisteredClaimNames.Email, user.Email),
             new("name", user.DisplayName),
             new("org", user.OrganizationId.ToString()),
+            new("organization_id", user.OrganizationId.ToString()),
             new(ClaimTypes.Role, user.Role)
         };
 

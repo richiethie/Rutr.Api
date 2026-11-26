@@ -4135,6 +4135,14 @@
           "organizationId": {
             "type": "string",
             "format": "uuid"
+          },
+          "organizationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "brandPrimaryColor": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -4756,6 +4764,14 @@
             "format": "uuid"
           },
           "organizationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "brandPrimaryColor": {
+            "type": "string",
+            "nullable": true
+          },
+          "organizationSlug": {
             "type": "string",
             "nullable": true
           }
