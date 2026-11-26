@@ -7,6 +7,7 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
 {
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<StaffUser> StaffUsers => Set<StaffUser>();
+    public DbSet<StaffInvite> StaffInvites => Set<StaffInvite>();
     public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<Property> Properties => Set<Property>();
     public DbSet<Job> Jobs => Set<Job>();
@@ -33,8 +34,16 @@ public class RutrDbContext(DbContextOptions<RutrDbContext> options) : DbContext(
         modelBuilder.Entity<StaffUser>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.OrganizationId, x.Email }).IsUnique();
+            e.HasIndex(x => x.Email).IsUnique();
             e.HasOne(x => x.Organization).WithMany(o => o.StaffUsers).HasForeignKey(x => x.OrganizationId);
+        });
+
+        modelBuilder.Entity<StaffInvite>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.InviteToken).IsUnique();
+            e.HasIndex(x => new { x.OrganizationId, x.Email });
+            e.HasOne(x => x.Organization).WithMany().HasForeignKey(x => x.OrganizationId);
         });
 
         modelBuilder.Entity<Contact>(e =>

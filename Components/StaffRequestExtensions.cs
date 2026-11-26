@@ -14,4 +14,9 @@ public static class StaffRequestExtensions
                   ?? user.FindFirst("sub")?.Value;
         return Guid.TryParse(sub, out var id) ? id : null;
     }
+
+    public static string GetStaffRole(this ClaimsPrincipal user) =>
+        user.FindFirst(ClaimTypes.Role)?.Value
+        ?? user.FindFirst("role")?.Value
+        ?? "Pm";
 }

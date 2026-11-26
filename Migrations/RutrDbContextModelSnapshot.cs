@@ -600,6 +600,54 @@ namespace Rutr.Api.Migrations
                     b.ToTable("Properties");
                 });
 
+            modelBuilder.Entity("Rutr.Api.Models.Entities.StaffInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InviteToken")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InviteToken")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Email");
+
+                    b.ToTable("StaffInvites");
+                });
+
             modelBuilder.Entity("Rutr.Api.Models.Entities.StaffUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -627,8 +675,10 @@ namespace Rutr.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId", "Email")
+                    b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("StaffUsers");
                 });
@@ -768,6 +818,17 @@ namespace Rutr.Api.Migrations
                 {
                     b.HasOne("Rutr.Api.Models.Entities.Organization", "Organization")
                         .WithMany("Properties")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("Rutr.Api.Models.Entities.StaffInvite", b =>
+                {
+                    b.HasOne("Rutr.Api.Models.Entities.Organization", "Organization")
+                        .WithMany()
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

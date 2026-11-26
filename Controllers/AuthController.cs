@@ -9,7 +9,7 @@ namespace Rutr.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public class AuthController(AuthService auth) : ControllerBase
+public class AuthController(AuthService auth, OnboardingService onboarding) : ControllerBase
 {
     [HttpPost("login")]
     [AllowAnonymous]
@@ -17,6 +17,44 @@ public class AuthController(AuthService auth) : ControllerBase
     {
         var result = await auth.LoginAsync(request, ct);
         return result is null ? Unauthorized(new { error = "Invalid email or password." }) : Ok(result);
+    }
+
+    [HttpPost("signup")]
+    [AllowAnonymous]
+    public async Task<ActionResult<SignupResponse>> Signup([FromBody] SignupRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await onboarding.SignupAsync(request, ct);
+            return CreatedAtAction(nameof(Me), result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Email already", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("accept-invite")]
+    [AllowAnonymous]
+    public async Task<ActionResult<SignupResponse>> AcceptInvite([FromBody] AcceptInviteRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await onboarding.AcceptInviteAsync(request, ct);
+            return CreatedAtAction(nameof(Me), result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Email already", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpGet("me")]

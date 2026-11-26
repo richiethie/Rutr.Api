@@ -35,20 +35,15 @@ public class EvidenceController(EvidenceService evidence) : ControllerBase
     /// <summary>Multipart upload — file + caption (+ optional visibility / CompanyCam id).</summary>
     [HttpPost("upload")]
     [RequestSizeLimit(12 * 1024 * 1024)]
-    public async Task<ActionResult<EvidenceDto>> Upload(
-        [FromForm] Guid jobId,
-        [FromForm] string caption,
-        [FromForm] IFormFile file,
-        [FromForm] string? externalCompanyCamId,
-        [FromForm] bool customerVisible = false,
-        CancellationToken ct = default)
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<EvidenceDto>> Upload([FromForm] EvidenceUploadForm form, CancellationToken ct = default)
     {
-        if (file is null || file.Length == 0)
+        if (form.File is null || form.File.Length == 0)
         {
             return BadRequest(new { error = "Choose an image file." });
         }
 
-        if (string.IsNullOrWhiteSpace(caption))
+        if (string.IsNullOrWhiteSpace(form.Caption))
         {
             return BadRequest(new { error = "Caption is required." });
         }
@@ -59,11 +54,11 @@ public class EvidenceController(EvidenceService evidence) : ControllerBase
             var publicBase = $"{Request.Scheme}://{Request.Host}";
             var created = await evidence.CreateFromUploadAsync(
                 User.GetOrganizationId(),
-                jobId,
-                caption,
-                file,
-                externalCompanyCamId,
-                customerVisible,
+                form.JobId,
+                form.Caption,
+                form.File,
+                form.ExternalCompanyCamId,
+                form.CustomerVisible,
                 publicBase,
                 webRoot,
                 ct);

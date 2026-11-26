@@ -127,6 +127,7 @@ builder.Services.AddScoped<MilestoneService>();
 builder.Services.AddScoped<ConsentService>();
 builder.Services.AddScoped<DraftService>();
 builder.Services.AddScoped<OrganizationService>();
+builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<IntegrationConnectionService>();
 builder.Services.AddScoped<ConnectSyncService>();
 builder.Services.AddScoped<MockDigestSender>();

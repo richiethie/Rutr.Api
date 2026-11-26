@@ -14,13 +14,18 @@ public sealed class RutrApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_dbPath}");
         builder.UseSetting("Jwt:SigningKey", "local-dev-only-signing-key-change-me-before-prod!!");
         builder.UseSetting("Integrations:UseMocks", "true");
+        // Keep SMS send path unblocked in tests regardless of wall-clock quiet hours.
+        builder.UseSetting("Messaging:QuietHoursStartLocal", "0");
+        builder.UseSetting("Messaging:QuietHoursEndLocal", "24");
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Default"] = $"Data Source={_dbPath}",
                 ["Jwt:SigningKey"] = "local-dev-only-signing-key-change-me-before-prod!!",
-                ["Integrations:UseMocks"] = "true"
+                ["Integrations:UseMocks"] = "true",
+                ["Messaging:QuietHoursStartLocal"] = "0",
+                ["Messaging:QuietHoursEndLocal"] = "24"
             });
         });
     }

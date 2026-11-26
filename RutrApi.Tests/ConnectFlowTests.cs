@@ -36,8 +36,11 @@ public class ConnectFlowTests : IClassFixture<RutrApiFactory>
 
         var approvals = await _client.GetFromJsonAsync<JsonElement>("/api/v1/approvals", JsonOptions);
         approvals.GetArrayLength().Should().BeGreaterThan(0);
-        var draftId = approvals[0].GetProperty("draftId").GetGuid();
-        var jobId = approvals[0].GetProperty("jobId").GetGuid();
+        // Prefer a PendingApproval draft created/kept for the Connect path.
+        var pending = approvals.EnumerateArray()
+            .First(x => x.GetProperty("status").GetString() == "PendingApproval");
+        var draftId = pending.GetProperty("draftId").GetGuid();
+        var jobId = pending.GetProperty("jobId").GetGuid();
 
         var approve = await _client.PostAsJsonAsync($"/api/v1/approvals/{draftId}/approve", new { });
         approve.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -51,7 +54,8 @@ public class ConnectFlowTests : IClassFixture<RutrApiFactory>
         stillQueued.GetProperty("status").GetString().Should().Be("Approved");
 
         var send = await _client.PostAsync($"/api/v1/approvals/{draftId}/send", null);
-        send.StatusCode.Should().Be(HttpStatusCode.OK);
+        var sendBody = await send.Content.ReadAsStringAsync();
+        send.StatusCode.Should().Be(HttpStatusCode.OK, because: sendBody);
         var sent = await send.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
         sent.GetProperty("status").GetString().Should().Be("Sent");
 
