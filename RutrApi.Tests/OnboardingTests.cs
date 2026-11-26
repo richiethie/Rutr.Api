@@ -73,8 +73,10 @@ public class OnboardingTests : IClassFixture<RutrApiFactory>
         var noLetter = await SignupWith("1234567!");
         PasswordErrors(noLetter).Should().Contain(StaffPasswordRules.LetterMessage);
 
-        var noSpecial = await SignupWith("abcdefg1");
+        var noSpecial = await SignupWith("secure1pass");
         PasswordErrors(noSpecial).Should().Contain(StaffPasswordRules.SpecialMessage);
+        PasswordErrors(noSpecial).Should().ContainSingle()
+            .Which.Should().Be("Password must include at least one special character.");
     }
 
     [Fact]
