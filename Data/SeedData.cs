@@ -109,19 +109,25 @@ public static class SeedData
             {
                 Id = PropMapleId, OrganizationId = OrgId, AddressLine1 = "1428 Maple Ridge Dr",
                 City = "Cedar Falls", State = "IA", PostalCode = "50613", PropertyType = "Residential",
-                YearBuilt = 1998, Notes = "Two-story, architectural shingles", CreatedAt = now.AddDays(-30), UpdatedAt = now.AddDays(-2)
+                YearBuilt = 1998, Notes = "Two-story, architectural shingles",
+                Latitude = 42.5341, Longitude = -92.4453,
+                CreatedAt = now.AddDays(-30), UpdatedAt = now.AddDays(-2)
             },
             new Property
             {
                 Id = PropPrairieId, OrganizationId = OrgId, AddressLine1 = "88 Prairie View Ct",
                 City = "Waterloo", State = "IA", PostalCode = "50701", PropertyType = "Residential",
-                YearBuilt = 2007, Notes = "Ranch, steep north slope", CreatedAt = now.AddDays(-14), UpdatedAt = now.AddDays(-1)
+                YearBuilt = 2007, Notes = "Ranch, steep north slope",
+                Latitude = 42.4928, Longitude = -92.3426,
+                CreatedAt = now.AddDays(-14), UpdatedAt = now.AddDays(-1)
             },
             new Property
             {
                 Id = PropOakId, OrganizationId = OrgId, AddressLine1 = "409 Oak Street",
                 City = "Waverly", State = "IA", PostalCode = "50677", PropertyType = "Residential",
-                YearBuilt = 1975, Notes = "Insurance rebuild complete", CreatedAt = now.AddDays(-60), UpdatedAt = now.AddDays(-5)
+                YearBuilt = 1975, Notes = "Insurance rebuild complete",
+                Latitude = 42.7258, Longitude = -92.4752,
+                CreatedAt = now.AddDays(-60), UpdatedAt = now.AddDays(-5)
             }
         };
 

@@ -17,6 +17,7 @@ using Rutr.Api.Services.Ai;
 using Rutr.Api.Services.CompanyCam;
 using Rutr.Api.Services.JobNimbus;
 using Rutr.Api.Services.Messaging;
+using Rutr.Api.Services.Places;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,7 @@ builder.Host.UseSerilog(
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<IntegrationOptions>(builder.Configuration.GetSection(IntegrationOptions.SectionName));
 builder.Services.Configure<MessagingOptions>(builder.Configuration.GetSection(MessagingOptions.SectionName));
+builder.Services.Configure<PlacesOptions>(builder.Configuration.GetSection(PlacesOptions.SectionName));
 
 // Resolve connection string at scope creation so test hosts can override via configuration.
 builder.Services.AddDbContext<RutrDbContext>((sp, opt) =>
@@ -144,6 +146,12 @@ builder.Services.AddScoped<OrganizationService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<IntegrationConnectionService>();
 builder.Services.AddScoped<ConnectSyncService>();
+builder.Services.AddScoped<PlacesService>();
+builder.Services.AddHttpClient("GooglePlaces", client =>
+{
+    client.BaseAddress = new Uri("https://maps.googleapis.com/maps/api/");
+    client.Timeout = TimeSpan.FromSeconds(8);
+});
 builder.Services.AddScoped<MockDigestSender>();
 builder.Services.AddSingleton<MockDraftGenerator>();
 builder.Services.AddSingleton<MockJobNimbusClient>();

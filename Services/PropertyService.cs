@@ -41,6 +41,8 @@ public class PropertyService(RutrDbContext db)
             PropertyType = string.IsNullOrWhiteSpace(req.PropertyType) ? "Residential" : req.PropertyType.Trim(),
             YearBuilt = req.YearBuilt,
             Notes = req.Notes,
+            Latitude = req.Latitude,
+            Longitude = req.Longitude,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -61,6 +63,8 @@ public class PropertyService(RutrDbContext db)
         entity.PropertyType = string.IsNullOrWhiteSpace(req.PropertyType) ? entity.PropertyType : req.PropertyType.Trim();
         entity.YearBuilt = req.YearBuilt;
         entity.Notes = req.Notes;
+        entity.Latitude = req.Latitude;
+        entity.Longitude = req.Longitude;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         return Map(entity, entity.Jobs.Count);
@@ -76,5 +80,6 @@ public class PropertyService(RutrDbContext db)
     }
 
     private static PropertyDto Map(Property p, int jobCount) =>
-        new(p.Id, p.AddressLine1, p.City, p.State, p.PostalCode, p.PropertyType, p.YearBuilt, p.Notes, jobCount, p.UpdatedAt);
+        new(p.Id, p.AddressLine1, p.City, p.State, p.PostalCode, p.PropertyType, p.YearBuilt, p.Notes,
+            p.Latitude, p.Longitude, jobCount, p.UpdatedAt);
 }

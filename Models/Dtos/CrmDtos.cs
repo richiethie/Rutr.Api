@@ -55,6 +55,8 @@ public record PropertyDto(
     string PropertyType,
     int? YearBuilt,
     string? Notes,
+    double? Latitude,
+    double? Longitude,
     int JobCount,
     DateTimeOffset UpdatedAt);
 
@@ -65,7 +67,9 @@ public record PropertyWriteRequest(
     string PostalCode,
     string? PropertyType,
     int? YearBuilt,
-    string? Notes);
+    string? Notes,
+    double? Latitude,
+    double? Longitude);
 
 public record JobWriteRequest(
     string? Title,

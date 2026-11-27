@@ -12,6 +12,8 @@ public class Property
     public string PropertyType { get; set; } = "Residential";
     public int? YearBuilt { get; set; }
     public string? Notes { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
